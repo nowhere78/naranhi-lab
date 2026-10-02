@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f3eee4" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>나란히 성경 · 작업용</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%238a5a34'/%3E%3Cpath d='M8 7h7.2a5 5 0 0 1 5 5V25H11.5A3.5 3.5 0 0 0 8 21.5V7z' fill='%23fffaf2'/%3E%3Cpath d='M24 7h-7.2v18H20.5A3.5 3.5 0 0 0 24 21.5V7z' fill='%23f0ddb8'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css?v=20261001a" />
+</head>
+<body>
+  <div class="gate" id="gate">
+    <form class="gate-card" id="gateForm">
+      <h1>나란히 성경 · 작업용</h1>
+      <p>이 주소는 손보는 곳입니다. 비밀번호를 넣어 주세요.</p>
+      <input id="pw" type="password" inputmode="numeric" autocomplete="current-password" placeholder="****" />
+      <button class="go" type="submit">들어가기</button>
+      <span class="gate-msg" id="gateMsg"></span>
+    </form>
+  </div>
+
+  <div class="app" id="app" hidden>
+    <div class="lab-banner">작업용 복사본 · 여기 고친 것은 본 주소에 바로 반영되지 않습니다</div>
+    <div class="chrome">
+      <header class="top">
+        <div class="head-btns">
+          <button class="ghost" id="bookBtn" type="button">성경 찾기</button>
+          <button class="ghost" id="planBtn" type="button">성경 읽기</button>
+        </div>
+        <div class="title-wrap">
+          <h1 id="title">창세기 1장</h1>
+          <p id="sub">Genesis 1</p>
+        </div>
+        <div class="tools">
+          <button class="ghost" id="modeBtn" type="button">한 권 읽기</button>
+          <button class="ghost" id="nightBtn" type="button">밤</button>
+          <button class="icon" id="fontDown" type="button" aria-label="글자 작게">가-</button>
+          <span id="fontLabel">18</span>
+          <button class="icon" id="fontUp" type="button" aria-label="글자 크게">가+</button>
+        </div>
+      </header>
+
+      <form class="search-row" id="searchForm">
+        <input id="q" type="search" autocomplete="off" placeholder="장절 이동이나 낱말 검색  예: 요3:16, 시23, 사랑" />
+        <button class="go" type="submit">이동</button>
+      </form>
+      <div class="suggest" id="suggest" hidden></div>
+
+      <div class="versions" id="versions"></div>
+
+      <div class="scrub">
+        <button class="nav" id="prev" type="button">이전 장</button>
+        <div class="scrub-mid">
+          <input id="scrub" type="range" min="0" value="0" />
+          <div class="scrub-label" id="scrubLabel">창세기</div>
+        </div>
+        <button class="nav" id="next" type="button">다음 장</button>
+      </div>
+      <div class="abbrs" id="abbrs"></div>
+    </div>
+
+    <div class="read-scroll" id="scroller">
+      <div id="results" hidden></div>
+      <div id="board" style="--cols: 3"></div>
+      <div class="bottom-nav">
+        <button class="nav" id="prev2" type="button">이전 장</button>
+        <button class="nav" id="markRead" type="button">읽음 표시</button>
+        <button class="nav" id="copyChapter" type="button">이 장 복사</button>
+        <button class="nav" id="next2" type="button">다음 장</button>
+      </div>
+      <footer>
+        <p>개인 소장 본문을 개인용으로 읽는 곳입니다. 퍼뜨리거나 옮겨 담지 마세요.</p>
+        <p>개역한글, 개역개정, 새번역, 새한글성경, 공동번역 &copy; 대한성서공회. 현대인의성경, 쉬운성경, 우리말성경, 현대어성경, 한글킹제임스는 각 발행처에 저작권이 있습니다. 본문은 고치지 않았습니다.</p>
+        <button class="linkish" id="aboutBtn" type="button">도움말</button>
+      </footer>
+    </div>
+
+    <div class="action" id="action" hidden>
+      <span id="actionLabel">1절</span>
+      <button type="button" id="copyOne" class="primary">복사</button>
+      <button type="button" id="copyAll">역본 모두 복사</button>
+      <button type="button" id="copyQuote">한 줄 인용</button>
+      <button type="button" id="multiBtn">여러 절 고르기</button>
+      <button type="button" class="swatch gold" data-color="gold" aria-label="노랑 표시"></button>
+      <button type="button" class="swatch green" data-color="green" aria-label="초록 표시"></button>
+      <button type="button" class="swatch blue" data-color="blue" aria-label="파랑 표시"></button>
+      <button type="button" class="swatch rose" data-color="rose" aria-label="분홍 표시"></button>
+      <button type="button" id="clearMark">표시 지우기</button>
+      <button type="button" id="shareBtn">링크</button>
+      <button type="button" id="clearSel">닫기</button>
+    </div>
+
+    <div class="ctx" id="ctx" role="menu" hidden>
+      <div class="ctx-head" id="ctxHead"></div>
+      <button type="button" class="item" data-act="one" id="ctxOne"><span>복사</span><kbd>Ctrl+C</kbd></button>
+      <button type="button" class="item" data-act="all"><span>모든 역본 나란히 복사</span></button>
+      <button type="button" class="item" data-act="quote"><span>한 줄 인용으로 복사</span></button>
+      <hr />
+      <button type="button" class="item" data-act="chapter" id="ctxChapter"><span>이 장 전체 복사</span></button>
+      <button type="button" class="item" data-act="link"><span>이 자리 링크 복사</span></button>
+      <hr />
+      <div class="ctx-swatches">
+        <span>형광펜</span>
+        <button type="button" class="swatch gold" data-color="gold" aria-label="노랑 표시"></button>
+        <button type="button" class="swatch green" data-color="green" aria-label="초록 표시"></button>
+        <button type="button" class="swatch blue" data-color="blue" aria-label="파랑 표시"></button>
+        <button type="button" class="swatch rose" data-color="rose" aria-label="분홍 표시"></button>
+        <button type="button" class="item mini" data-act="unmark">지우기</button>
+      </div>
+      <hr />
+      <button type="button" class="item" data-act="clear"><span>선택 풀기</span><kbd>Esc</kbd></button>
+      <div class="ctx-tip">Shift+클릭 범위 고르기 · Ctrl+클릭 여러 절 고르기</div>
+    </div>
+  </div>
+
+  <dialog id="bookDialog">
+    <div class="dialog-head">
+      <h2 id="dialogTitle">성경 찾기</h2>
+      <button class="ghost" id="closeBooks" type="button">닫기</button>
+    </div>
+    <div id="dialogBody"></div>
+  </dialog>
+
+  <dialog id="planDialog">
+    <div class="dialog-head">
+      <h2>성경 통독표</h2>
+      <div class="plan-tools">
+        <button class="ghost" id="planReset" type="button">전체 지우기</button>
+        <button class="ghost" id="closePlan" type="button">닫기</button>
+      </div>
+    </div>
+    <div class="plan-setup">
+      <div class="plan-line">
+        <label for="planStart">시작일</label>
+        <input id="planStart" type="date" />
+        <label for="planPer">하루</label>
+        <input id="planPer" type="number" min="1" max="60" step="1" value="4" />
+        <span>장</span>
+        <button class="chip" type="button" data-days="365">1년</button>
+        <button class="chip" type="button" data-days="180">6개월</button>
+        <button class="chip" type="button" data-days="90">90일</button>
+        <button class="chip" type="button" data-days="730">2년</button>
+      </div>
+      <div class="plan-forecast" id="planForecast"></div>
+      <div class="plan-today">
+        <b>오늘 읽을 곳</b>
+        <div class="plan-today-list" id="planToday"></div>
+        <button class="ghost" id="planTodayDone" type="button">오늘치 읽음 표시</button>
+      </div>
+    </div>
+    <div class="plan-summary" id="planSummary"></div>
+    <div class="plan-bar"><span id="planBarFill"></span></div>
+    <div id="planBody"></div>
+  </dialog>
+
+  <dialog id="aboutDialog">
+    <div class="dialog-head">
+      <h2>도움말</h2>
+      <button class="ghost" id="closeAbout" type="button">닫기</button>
+    </div>
+    <div class="about">
+      <p>역본 단추를 누르면 그 역본이 기둥으로 붙습니다. 같은 절 번호가 가로로 나란히 맞춰집니다.</p>
+      <p>검색창에 <b>요3:16</b>이나 <b>시23</b>을 넣으면 그 자리로 갑니다. 낱말을 넣으면 맨 앞 역본에서 찾습니다.</p>
+      <p>절을 누르면 고르고, 오른쪽 클릭하면 복사 메뉴가 나옵니다. Shift+클릭으로 여러 절을 이어 고르고, Ctrl+클릭으로 띄엄띄엄 고릅니다. 고른 뒤 Ctrl+C를 누르면 누른 역본으로 바로 복사됩니다.</p>
+      <p>글자 일부만 복사하려면 마우스로 끌어서 고른 뒤 평소처럼 복사하세요. 좌우 방향키로 장을 넘깁니다.</p>
+      <p>마지막 읽던 곳, 고른 역본, 글자 크기, 형광펜은 이 기기에 남습니다.</p>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="./app.js?v=20261001a"></script>
+</body>
+</html>
