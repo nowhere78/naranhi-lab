@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20261001a" />
+  <link rel="stylesheet" href="./styles.css?v=20261002a" />
 </head>
 <body>
   <div class="gate" id="gate">
@@ -38,6 +38,7 @@
         <div class="tools">
           <button class="ghost" id="modeBtn" type="button">한 권 읽기</button>
           <button class="ghost" id="nightBtn" type="button">밤</button>
+          <button class="ghost" id="studyToggle" type="button">해설 숨기기</button>
           <button class="icon" id="fontDown" type="button" aria-label="글자 작게">가-</button>
           <span id="fontLabel">18</span>
           <button class="icon" id="fontUp" type="button" aria-label="글자 크게">가+</button>
@@ -74,9 +75,25 @@
       </div>
       <footer>
         <p>개인 소장 본문을 개인용으로 읽는 곳입니다. 퍼뜨리거나 옮겨 담지 마세요.</p>
-        <p>개역한글, 개역개정, 새번역, 새한글성경, 공동번역 &copy; 대한성서공회. 현대인의성경, 쉬운성경, 우리말성경, 현대어성경, 한글킹제임스는 각 발행처에 저작권이 있습니다. 본문은 고치지 않았습니다.</p>
+        <p>해설·용어·본문비평·굿뉴스 안내는 대한성서공회 CD-ROM 성경 2.0에서 가져왔습니다. 개역한글, 개역개정, 새번역, 새한글성경, 공동번역 &copy; 대한성서공회. 현대인의성경, 쉬운성경, 우리말성경, 현대어성경, 한글킹제임스는 각 발행처에 저작권이 있습니다. 본문은 고치지 않았습니다.</p>
         <button class="linkish" id="aboutBtn" type="button">도움말</button>
       </footer>
+    </div>
+
+    <div class="study" id="study">
+      <div class="study-drag" id="studyDrag" title="높이를 끌어서 조절"></div>
+      <div class="study-tabs" id="studyTabs">
+        <button type="button" class="on" data-tab="intro">책 안내</button>
+        <button type="button" data-tab="gnsb">굿뉴스</button>
+        <button type="button" data-tab="cri">본문비평</button>
+        <button type="button" data-tab="term">용어</button>
+        <button type="button" data-tab="unit">단위</button>
+      </div>
+      <div class="study-search" id="termSearchWrap" hidden>
+        <input id="termQ" type="search" placeholder="용어 이름 찾기" />
+      </div>
+      <div class="study-body" id="studyBody">해설을 불러오는 중입니다.</div>
+      <div class="study-src">자료: 대한성서공회 CD-ROM 성경 2.0 · 독일성서공회 해설관주 · 굿뉴스 스터디 바이블. 개인 소장본 개인용.</div>
     </div>
 
     <div class="action" id="action" hidden>
@@ -172,6 +189,6 @@
   </dialog>
 
   <div class="toast" id="toast" hidden></div>
-  <script src="./app.js?v=20261001a"></script>
+  <script src="./app.js?v=20261002a"></script>
 </body>
 </html>

@@ -442,3 +442,22 @@ body.night .plan-gap.late { color: #f0a08c; }
   font-weight: 700;
   padding: 6px 10px;
 }
+
+.study { flex: none; height: 240px; min-height: 120px; max-height: 70vh; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--paper); }
+body.study-off .study { display: none; }
+.study-drag { height: 7px; cursor: ns-resize; background: var(--line); }
+.study-tabs { display: flex; gap: 4px; padding: 6px 10px 0; overflow-x: auto; }
+.study-tabs button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; }
+.study-tabs button.on { background: var(--accent); color: #fffaf3; border-color: transparent; font-weight: 700; }
+.study-search { padding: 6px 10px 0; }
+.study-search input { width: 100%; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; background: var(--bg); outline: none; }
+.study-body { flex: 1; overflow: auto; padding: 10px 14px 8px; font-size: 0.95rem; line-height: 1.7; white-space: pre-wrap; }
+.study-body h3 { margin: 0 0 8px; font-size: 1rem; color: var(--accent); }
+.study-body .note { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.study-body .note.on { background: rgba(138,90,52,0.08); margin: 0 -8px; padding: 8px; border-radius: 8px; }
+.study-body .ref { color: var(--accent); font-weight: 700; }
+.study-body .sec { margin: 0 0 12px; }
+.study-body .sec-t { font-weight: 700; margin: 0 0 4px; color: var(--accent); }
+.study-src { font-size: 0.72rem; color: var(--muted); padding: 4px 12px 6px; }
+.term-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; color: inherit; }
+.term-item b { color: var(--accent); display: block; margin-bottom: 2px; }

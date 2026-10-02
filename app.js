@@ -115,6 +115,10 @@ const state = {
   selCol: null,
   anchor: null,
   multi: false,
+  studyTab: 'intro',
+  studyOn: true,
+  study: null,
+  termOpen: null,
   plan: { start: null, perDay: 4 },
   recent: [],
   terms: [],
@@ -417,6 +421,8 @@ function refreshSelection() {
   $('copyOne').textContent = (src ? src.name : '') + ' 복사';
   history.replaceState(null, '', location.pathname + '#/' + state.book + '/' + state.chapter + '/' + state.sel[0]);
   remember();
+  if (state.study && state.studyTab === 'cri') renderStudy();
+  if (state.study) renderStudy();
 }
 
 function textPicked() {
@@ -528,6 +534,7 @@ async function openPlace(book, chapter, verse, terms) {
     $('scroller').scrollTop = 0;
   }
   remember();
+  if (state.study) renderStudy();
 }
 
 function chapterFilled(book, chapter) {
@@ -1054,6 +1061,115 @@ function onType() {
   }
 }
 
+
+async function loadStudy() {
+  if (state.study) return state.study;
+  try {
+    const [de, gnsb, cri, terms, units] = await Promise.all([
+      fetch('./study/de.json').then((r) => r.json()),
+      fetch('./study/gnsb.json').then((r) => r.json()),
+      fetch('./study/cri.json').then((r) => r.json()),
+      fetch('./study/terms.json').then((r) => r.json()),
+      fetch('./study/units.json').then((r) => r.json())
+    ]);
+    state.study = { de, gnsb, cri, terms, units };
+  } catch (err) {
+    state.study = { de: {}, gnsb: {}, cri: { intro: '', books: {} }, terms: [], units: [] };
+    toast('해설 자료를 불러오지 못했습니다');
+  }
+  return state.study;
+}
+
+function escapeHtml(text) {
+  return String(text || '').replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+}
+
+function linkRefs(text) {
+  const t = escapeHtml(text);
+  return t.replace(/([1-3]?[가-힣]{1,6}|[1-3]?[A-Za-z]{2,6})\s*(\d+)\s*:\s*(\d+)/g, (m) => '<span class="ref">' + m + '</span>');
+}
+
+function noteMatchesChapter(ref, book, chapter) {
+  if (!ref) return false;
+  const bookName = bookById(book).ko;
+  const abbr = bookById(book).abbr;
+  const hasBook = ref.indexOf(bookName) >= 0 || ref.indexOf(abbr) >= 0 || /^\s*\d/.test(ref);
+  if (!hasBook && /[가-힣]/.test(ref) && ref.indexOf(bookName) < 0 && ref.indexOf(abbr) < 0) return false;
+  return ref.indexOf(String(chapter)) >= 0;
+}
+
+function renderStudy() {
+  const box = $('studyBody');
+  if (!box || !state.study) return;
+  $('termSearchWrap').hidden = state.studyTab !== 'term';
+  const book = String(state.book);
+  const verse = state.sel[0] || state.verse;
+  if (state.studyTab === 'intro' || state.studyTab === 'gnsb') {
+    const pack = state.studyTab === 'intro' ? state.study.de[book] : state.study.gnsb[book];
+    const label = state.studyTab === 'intro' ? '독일성서공회 책 안내' : '굿뉴스 스터디 바이블';
+    if (!pack) { box.innerHTML = '<p class="muted">이 책의 ' + label + '가 없습니다.</p>'; return; }
+    let html = '<h3>' + escapeHtml(pack.title || bookById(state.book).ko) + ' · ' + label + '</h3>';
+    html += '<div class="sec">' + linkRefs(pack.intro) + '</div>';
+    const secs = Array.isArray(pack.sections) ? pack.sections : Object.values(pack.sections || {});
+    secs.forEach((sec) => {
+      html += '<div class="sec"><div class="sec-t">' + escapeHtml(sec.t || '') + '</div>' + linkRefs(sec.x) + '</div>';
+    });
+    box.innerHTML = html;
+    return;
+  }
+  if (state.studyTab === 'cri') {
+    const notes = (state.study.cri.books && state.study.cri.books[book]) || [];
+    const chapNotes = notes.filter((n) => noteMatchesChapter(n.r, state.book, state.chapter));
+    const show = chapNotes.length ? chapNotes : notes.slice(0, 12);
+    let html = '<h3>본문 비평 주 · ' + bookById(state.book).ko + ' ' + state.chapter + '장</h3>';
+    if (!notes.length) html += '<p class="muted">이 책의 본문비평 주가 파일에 없습니다.</p>';
+    show.forEach((n) => {
+      const on = verse && String(n.r).indexOf(':' + verse) >= 0;
+      html += '<div class="note' + (on ? ' on' : '') + '"><span class="ref">' + escapeHtml(n.r) + '</span> ' + linkRefs(n.x) + '</div>';
+    });
+    if (!chapNotes.length && notes.length) html += '<p class="muted">이 장에 해당하는 주를 못 찾아 이 책 주를 보여 줍니다.</p>';
+    box.innerHTML = html;
+    const cur = box.querySelector('.note.on');
+    if (cur) cur.scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  if (state.studyTab === 'unit') {
+    let html = '<h3>도량형 및 화폐 단위</h3>';
+    state.study.units.forEach((u) => {
+      html += '<div class="sec"><div class="sec-t">' + escapeHtml(u.n) + '</div>' + linkRefs(u.x) + '</div>';
+    });
+    box.innerHTML = html;
+    return;
+  }
+  const q = ($('termQ').value || '').trim();
+  const list = state.study.terms.filter((t) => !q || t.n.indexOf(q) >= 0 || t.x.indexOf(q) >= 0).slice(0, 80);
+  if (state.termOpen) {
+    const t = state.study.terms.find((x) => x.n === state.termOpen);
+    if (t) {
+      box.innerHTML = '<button type="button" class="ghost" id="termBack">목록</button><h3>' + escapeHtml(t.n) + '</h3><div class="sec">' + linkRefs(t.x) + '</div>';
+      return;
+    }
+  }
+  let html = '<h3>용어 해설' + (q ? ' · ' + list.length + '건' : ' · ' + state.study.terms.length + '항목') + '</h3>';
+  list.forEach((t) => {
+    html += '<button type="button" class="term-item" data-term="' + escapeHtml(t.n) + '"><b>' + escapeHtml(t.n) + '</b>' + escapeHtml(t.x.slice(0, 90)) + (t.x.length > 90 ? '…' : '') + '</button>';
+  });
+  box.innerHTML = html;
+}
+
+function bindStudyClicks() {
+  $('studyBody').onclick = (event) => {
+    const back = event.target.closest('#termBack');
+    if (back) { state.termOpen = null; renderStudy(); return; }
+    const item = event.target.closest('.term-item');
+    if (item) { state.termOpen = item.dataset.term; renderStudy(); return; }
+    const ref = event.target.closest('.ref');
+    if (!ref) return;
+    const parsed = parseQuery(ref.textContent.trim());
+    if (parsed && parsed.book) openPlace(parsed.book, parsed.chapter, parsed.verse, []);
+  };
+}
+
 function startApp() {
   $('gate').hidden = true;
   $('app').hidden = false;
@@ -1062,6 +1178,8 @@ function startApp() {
   renderChrome();
   openPlace(state.book, state.chapter, state.verse, []);
   VERSIONS.slice(0, 4).forEach((v) => loadVersion(v.id).catch(() => {}));
+  loadStudy().then(() => renderStudy());
+  bindStudyClicks();
 }
 
 function boot() {
@@ -1094,6 +1212,33 @@ function boot() {
   $('fontDown').onclick = () => { state.font = Math.max(15, state.font - 1); savePrefs(); renderChrome(); };
   $('fontUp').onclick = () => { state.font = Math.min(28, state.font + 1); savePrefs(); renderChrome(); };
   $('nightBtn').onclick = () => { state.night = !state.night; savePrefs(); renderChrome(); };
+  $('studyToggle').onclick = () => {
+    document.body.classList.toggle('study-off');
+    $('studyToggle').textContent = document.body.classList.contains('study-off') ? '해설 보기' : '해설 숨기기';
+  };
+  document.querySelectorAll('#studyTabs button').forEach((btn) => {
+    btn.onclick = () => {
+      state.studyTab = btn.dataset.tab;
+      state.termOpen = null;
+      document.querySelectorAll('#studyTabs button').forEach((b) => b.classList.toggle('on', b === btn));
+      renderStudy();
+    };
+  });
+  $('termQ').addEventListener('input', () => { state.termOpen = null; renderStudy(); });
+  let drag = false;
+  $('studyDrag').onmousedown = (event) => {
+    drag = true;
+    event.preventDefault();
+    const startY = event.clientY;
+    const startH = $('study').offsetHeight;
+    const move = (ev) => {
+      if (!drag) return;
+      $('study').style.height = Math.max(120, Math.min(window.innerHeight * 0.7, startH - (ev.clientY - startY))) + 'px';
+    };
+    const up = () => { drag = false; document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  };
   $('modeBtn').onclick = () => { state.readMode = !state.readMode; savePrefs(); openPlace(state.book, state.chapter, state.verse, state.terms); };
   $('bookBtn').onclick = openBooks;
   $('planBtn').onclick = openPlan;
