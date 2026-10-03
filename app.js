@@ -1290,7 +1290,7 @@ function studyHtml() {
         html += '<div class="note' + (on ? ' on' : '') + '"><span class="rng">' + escapeHtml(n.r) + '</span>' + renderRich(n.x) + '</div>';
       });
     }
-    if (!secs.length && !notes.length && state.chapter !== 1) html += '<p class="muted">이 장에 붙은 해설이 없습니다. 책 안내나 굿뉴스 탭을 보세요.</p>';
+    if (!secs.length && state.chapter !== 1) html += '<p class="muted">이 장에는 단락 해설 자료가 없습니다.</p><p class="muted"><button type="button" class="linkbtn" data-tab="intro">책 안내 읽기</button> · <button type="button" class="linkbtn" data-tab="gnsb">굿뉴스 개요 읽기</button></p>';
     return html;
   }
   if (state.studyTab === 'intro' || state.studyTab === 'gnsb') {
