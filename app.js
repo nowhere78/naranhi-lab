@@ -115,9 +115,15 @@ const state = {
   selCol: null,
   anchor: null,
   multi: false,
-  studyTab: 'intro',
+  studyTab: 'chapter',
   studyOn: true,
+  studyDock: 'side',
+  studyW: 0,
+  studyH: 0,
+  inline: true,
   study: null,
+  studyIdx: {},
+  openNotes: new Set(),
   termOpen: null,
   plan: { start: null, perDay: 4 },
   recent: [],
@@ -145,6 +151,12 @@ function loadPrefs() {
     if (saved.read) state.read = saved.read;
     if (saved.plan && saved.plan.perDay) state.plan = saved.plan;
     if (Array.isArray(saved.recent)) state.recent = saved.recent;
+    if (saved.studyTab) state.studyTab = saved.studyTab;
+    if (saved.studyOn === false) state.studyOn = false;
+    if (saved.studyDock) state.studyDock = saved.studyDock;
+    if (saved.studyW) state.studyW = saved.studyW;
+    if (saved.studyH) state.studyH = saved.studyH;
+    if (saved.inline === false) state.inline = false;
   } catch {}
 }
 
@@ -159,7 +171,13 @@ function savePrefs() {
     marks: state.marks,
     read: state.read,
     plan: state.plan,
-    recent: state.recent.slice(0, 8)
+    recent: state.recent.slice(0, 8),
+    studyTab: state.studyTab,
+    studyOn: state.studyOn,
+    studyDock: state.studyDock,
+    studyW: state.studyW,
+    studyH: state.studyH,
+    inline: state.inline
   }));
 }
 
@@ -339,8 +357,13 @@ function renderBoard() {
     return;
   }
 
+  const plan = inlinePlan();
+  let carry = [];
   for (let i = 0; i < max; i++) {
-    if (!texts.some((rows) => rows && rows[i])) continue;
+    const pre = carry.concat(plan.before[i + 1] || []);
+    if (!texts.some((rows) => rows && rows[i])) { carry = pre.concat(plan.after[i + 1] || []); continue; }
+    carry = [];
+    pre.forEach((item) => board.appendChild(inlineBox(item)));
     const row = document.createElement('div');
     row.className = 'verse-row' + (isSel(i + 1) ? ' on' : '');
     row.id = 'v' + (i + 1);
@@ -372,7 +395,12 @@ function renderBoard() {
       row.appendChild(cell);
     });
     board.appendChild(row);
+    (plan.after[i + 1] || []).forEach((item) => board.appendChild(inlineBox(item)));
   }
+  carry.forEach((item) => board.appendChild(inlineBox(item)));
+  Object.keys(plan.before).concat(Object.keys(plan.after)).map(Number).filter((v) => v > max).sort((a, b) => a - b).forEach((v) => {
+    (plan.before[v] || []).concat(plan.after[v] || []).forEach((item) => board.appendChild(inlineBox(item)));
+  });
 }
 
 function isSel(verse) { return state.sel.includes(verse); }
@@ -421,7 +449,7 @@ function refreshSelection() {
   $('copyOne').textContent = (src ? src.name : '') + ' 복사';
   history.replaceState(null, '', location.pathname + '#/' + state.book + '/' + state.chapter + '/' + state.sel[0]);
   remember();
-  if (state.study && state.studyTab === 'cri') renderStudy();
+  if (state.study && (state.studyTab === 'cri' || state.studyTab === 'chapter')) renderStudy();
   if (state.study) renderStudy();
 }
 
@@ -1077,97 +1105,289 @@ async function loadStudy() {
     state.study = { de: {}, gnsb: {}, cri: { intro: '', books: {} }, terms: [], units: [] };
     toast('해설 자료를 불러오지 못했습니다');
   }
+  state.studyIdx = {};
   return state.study;
 }
 
 function escapeHtml(text) {
-  return String(text || '').replace(/[&<>]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+  return String(text || '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
 }
 
-function linkRefs(text) {
-  const t = escapeHtml(text);
-  return t.replace(/([1-3]?[가-힣]{1,6}|[1-3]?[A-Za-z]{2,6})\s*(\d+)\s*:\s*(\d+)/g, (m) => '<span class="ref">' + m + '</span>');
+function cleanLines(text) {
+  return String(text || '').replace(/\r/g, '').split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
 }
 
-function noteMatchesChapter(ref, book, chapter) {
-  if (!ref) return false;
-  const bookName = bookById(book).ko;
-  const abbr = bookById(book).abbr;
-  const hasBook = ref.indexOf(bookName) >= 0 || ref.indexOf(abbr) >= 0 || /^\s*\d/.test(ref);
-  if (!hasBook && /[가-힣]/.test(ref) && ref.indexOf(bookName) < 0 && ref.indexOf(abbr) < 0) return false;
-  return ref.indexOf(String(chapter)) >= 0;
+function isEmptyNote(text) {
+  return !text || /해설이 없습니다\.?\s*$/.test(String(text).trim());
+}
+
+const REF_RE = /((?:[1-3]\s?)?[가-힣A-Za-z]{1,7})?(\s?)(\d{1,3})\s?:\s?(\d{1,3})((?:\s?[-~]\s?\d{1,3}(?:\s?:\s?\d{1,3})?)?)/g;
+
+function linkRefs(text, ctxBook) {
+  const base = ctxBook || state.book;
+  return escapeHtml(text).replace(REF_RE, (all, pre, sp, c, v, tail) => {
+    let book = base;
+    let lead = '';
+    let label = c + ':' + v + (tail || '');
+    if (pre) {
+      const key = pre.replace(/\s/g, '');
+      const found = matchBook(key);
+      if (found) { book = found.id; label = pre + sp + label; }
+      else lead = pre + sp;
+    } else if (sp) lead = sp;
+    if (Number(c) < 1 || Number(c) > CHAPTERS[book - 1]) return all;
+    return lead + '<span class="ref" data-b="' + book + '" data-c="' + c + '" data-v="' + v + '">' + label + '</span>';
+  });
+}
+
+function renderRich(text, ctxBook) {
+  const lines = cleanLines(text);
+  let html = '';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === '내용 개요') { html += '<h4 class="rich-h">내용 개요</h4>'; continue; }
+    if (/^\d{1,3}(:\d{1,3})?\s*[-~]\s*\d{1,3}(:\d{1,3})?$/.test(line) && lines[i + 1] && !/^\d/.test(lines[i + 1])) {
+      html += '<div class="o-row"><span class="o-range">' + linkRefs(line, ctxBook) + '</span><span class="o-t">' + linkRefs(lines[i + 1], ctxBook) + '</span></div>';
+      i++;
+      continue;
+    }
+    if (/^[ㄱ-ㅎ]\s/.test(line)) { html += '<div class="o-sub">' + linkRefs(line, ctxBook) + '</div>'; continue; }
+    if (/^관련용어\s*:/.test(line)) { html += '<p class="rich-rel">' + linkRefs(line, ctxBook) + '</p>'; continue; }
+    html += '<p>' + linkRefs(line, ctxBook) + '</p>';
+  }
+  return html;
+}
+
+function parseRange(str) {
+  const groups = [];
+  const re = /\(([^()]*)\)/g;
+  let m;
+  while ((m = re.exec(str))) groups.push(m[1]);
+  groups.push(str);
+  for (const g of groups) {
+    let r;
+    if ((r = g.match(/(\d+)\s*:\s*(\d+)\s*[-~]\s*(\d+)\s*:\s*(\d+)/))) return { sc: +r[1], sv: +r[2], ec: +r[3], ev: +r[4], src: g };
+    if ((r = g.match(/(\d+)\s*:\s*(\d+)\s*[-~]\s*(\d+)/))) return { sc: +r[1], sv: +r[2], ec: +r[1], ev: +r[3], src: g };
+    if ((r = g.match(/(\d+)\s*[-~]\s*(\d+)\s*[장편]/))) return { sc: +r[1], sv: 1, ec: +r[2], ev: 999, src: g };
+    if ((r = g.match(/(\d+)\s*[장편]/))) return { sc: +r[1], sv: 1, ec: +r[1], ev: 999, src: g };
+    if ((r = g.match(/(\d+)\s*:\s*(\d+)/))) return { sc: +r[1], sv: +r[2], ec: +r[1], ev: +r[2], src: g };
+  }
+  return null;
+}
+
+function rangeText(r, book) {
+  const unit = book === 19 ? '편' : '장';
+  if (r.ev === 999 && r.sv === 1) return r.sc === r.ec ? r.sc + unit : r.sc + '-' + r.ec + unit;
+  if (r.sc === r.ec) return r.sc + ':' + r.sv + (r.ev !== r.sv ? '-' + r.ev : '');
+  return r.sc + ':' + r.sv + '-' + r.ec + ':' + r.ev;
+}
+
+function studyFor(book) {
+  if (!state.study) return null;
+  if (state.studyIdx[book]) return state.studyIdx[book];
+  const out = { sections: [], cri: [], intro: '', gintro: '' };
+  const seen = new Set();
+  [['de', '해설관주'], ['gnsb', '굿뉴스']].forEach(([key, label]) => {
+    const pack = state.study[key][String(book)];
+    if (!pack) return;
+    if (key === 'de') out.intro = pack.intro || ''; else out.gintro = pack.intro || '';
+    const secs = Array.isArray(pack.sections) ? pack.sections : (pack.sections ? [pack.sections] : []);
+    secs.forEach((s) => {
+      const r = parseRange(s.t || '');
+      if (!r || isEmptyNote(s.x)) return;
+      const id = key + '|' + s.t;
+      if (seen.has(id)) return;
+      seen.add(id);
+      const title = (s.t || '').replace('(' + r.src + ')', '').replace(/\s+/g, ' ').trim();
+      out.sections.push({ key: id, src: key, label, title, r, x: s.x });
+    });
+  });
+  out.sections.sort((a, b) => (a.r.sc - b.r.sc) || (a.r.sv - b.r.sv) || (a.src === 'de' ? -1 : 1));
+  const notes = (state.study.cri.books && state.study.cri.books[String(book)]) || [];
+  notes.forEach((n) => {
+    const refs = [];
+    const rr = /(\d{1,3})\s*:\s*(\d{1,3})/g;
+    let m;
+    while ((m = rr.exec(n.r))) refs.push({ c: +m[1], v: +m[2] });
+    out.cri.push({ key: 'c|' + n.r + '|' + n.x.slice(0, 12), r: n.r, x: n.x, refs });
+  });
+  state.studyIdx[book] = out;
+  return out;
+}
+
+function inlineBox(item) {
+  const box = document.createElement('div');
+  let label = '';
+  let title = '';
+  let body = '';
+  let plain = '';
+  if (item.kind === 'intro') {
+    box.className = 'inote intro';
+    label = '책 안내 · 해설관주';
+    title = bookById(state.book).ko;
+    body = renderRich(item.text);
+    plain = item.text;
+  } else if (item.kind === 'sec') {
+    box.className = 'inote sec-box ' + item.s.src;
+    label = (item.s.src === 'de' ? '단락 해설 · 해설관주' : '단락 해설 · 굿뉴스') + ' · ' + rangeText(item.s.r, state.book);
+    title = item.s.title;
+    body = renderRich(item.s.x);
+    plain = item.s.x;
+  } else {
+    box.className = 'inote cri';
+    label = '본문 비평 주 · ' + item.n.r;
+    body = renderRich(item.n.x);
+    plain = item.n.x;
+  }
+  const key = item.kind === 'intro' ? 'i|' + state.book : (item.kind === 'sec' ? item.s.key : item.n.key);
+  const long = plain.replace(/\s+/g, '').length > 330;
+  if (long && !state.openNotes.has(key)) box.classList.add('clamp');
+  box.innerHTML = '<div class="inote-label">' + escapeHtml(label) + '</div>' +
+    (title ? '<div class="inote-title">' + escapeHtml(title) + '</div>' : '') +
+    '<div class="inote-body">' + body + '</div>' +
+    (long ? '<button type="button" class="inote-more" data-key="' + escapeHtml(key) + '">' + (state.openNotes.has(key) ? '접기' : '펼쳐 읽기') + '</button>' : '');
+  return box;
+}
+
+function inlinePlan() {
+  const before = {};
+  const after = {};
+  if (!state.inline || !state.study || state.book > CANON) return { before, after };
+  const st = studyFor(state.book);
+  const push = (map, v, item) => { (map[v] = map[v] || []).push(item); };
+  if (state.chapter === 1 && st.intro && !isEmptyNote(st.intro)) push(before, 1, { kind: 'intro', text: st.intro });
+  st.sections.forEach((s) => { if (s.r.sc === state.chapter) push(before, Math.max(1, s.r.sv), { kind: 'sec', s }); });
+  st.cri.forEach((n) => {
+    const hit = n.refs.find((x) => x.c === state.chapter);
+    if (hit) push(after, hit.v, { kind: 'cri', n });
+  });
+  return { before, after };
+}
+
+function studyHtml() {
+  const book = state.book;
+  const name = bookById(book).ko;
+  if (book > CANON && ['chapter', 'intro', 'gnsb', 'cri'].includes(state.studyTab)) {
+    return '<h3>' + escapeHtml(name) + '</h3><p class="muted">외경에는 이 해설 자료가 없습니다.</p>';
+  }
+  const st = studyFor(book);
+  const verse = state.sel[0] || state.verse;
+  const unit = book === 19 ? '편' : '장';
+  if (state.studyTab === 'chapter') {
+    let html = '<h3>' + escapeHtml(name) + ' ' + state.chapter + unit + ' 해설</h3>';
+    const secs = st.sections.filter((s) => s.r.sc <= state.chapter && state.chapter <= s.r.ec);
+    const notes = st.cri.filter((n) => n.refs.some((x) => x.c === state.chapter));
+    if (state.chapter === 1 && st.intro) {
+      html += '<section class="sec"><div class="sec-h"><span class="sec-title">책 안내</span><span class="src-chip">해설관주</span></div>' + renderRich(cleanLines(st.intro).slice(0, 2).join('\n')) + '<button type="button" class="linkbtn" data-tab="intro">책 안내 전체 읽기</button></section>';
+    }
+    secs.forEach((s) => {
+      html += '<section class="sec"><div class="sec-h"><span class="rng">' + escapeHtml(rangeText(s.r, book)) + '</span><span class="sec-title">' + escapeHtml(s.title) + '</span><span class="src-chip">' + s.label + '</span></div>' + renderRich(s.x) + '</section>';
+    });
+    if (notes.length) {
+      html += '<h4 class="rich-h">본문 비평 주</h4>';
+      notes.forEach((n) => {
+        const on = verse && n.refs.some((x) => x.c === state.chapter && x.v === verse);
+        html += '<div class="note' + (on ? ' on' : '') + '"><span class="rng">' + escapeHtml(n.r) + '</span>' + renderRich(n.x) + '</div>';
+      });
+    }
+    if (!secs.length && !notes.length && state.chapter !== 1) html += '<p class="muted">이 장에 붙은 해설이 없습니다. 책 안내나 굿뉴스 탭을 보세요.</p>';
+    return html;
+  }
+  if (state.studyTab === 'intro' || state.studyTab === 'gnsb') {
+    const isDe = state.studyTab === 'intro';
+    const text = isDe ? st.intro : st.gintro;
+    let html = '<h3>' + escapeHtml(name) + ' · ' + (isDe ? '독일성서공회 해설관주' : '굿뉴스 스터디 바이블') + '</h3>';
+    if (!text && !st.sections.length) return html + '<p class="muted">자료가 없습니다.</p>';
+    html += '<section class="sec">' + renderRich(text) + '</section>';
+    st.sections.filter((s) => s.src === (isDe ? 'de' : 'gnsb')).forEach((s) => {
+      html += '<section class="sec"><div class="sec-h"><span class="rng">' + escapeHtml(rangeText(s.r, book)) + '</span><span class="sec-title">' + escapeHtml(s.title) + '</span></div>' + renderRich(s.x) + '</section>';
+    });
+    return html;
+  }
+  if (state.studyTab === 'cri') {
+    let html = '<h3>' + escapeHtml(name) + ' · 본문 비평 주</h3>';
+    if (!st.cri.length) return html + '<p class="muted">이 책에는 본문 비평 주가 없습니다.</p>';
+    st.cri.forEach((n) => {
+      const here = n.refs.some((x) => x.c === state.chapter);
+      const on = here && verse && n.refs.some((x) => x.c === state.chapter && x.v === verse);
+      html += '<div class="note' + (on ? ' on' : here ? ' here' : '') + '"><span class="rng">' + escapeHtml(n.r) + '</span>' + renderRich(n.x) + '</div>';
+    });
+    return html;
+  }
+  if (state.studyTab === 'unit') {
+    let html = '<h3>도량형 및 화폐 단위</h3>';
+    state.study.units.forEach((u) => { html += '<section class="sec"><div class="sec-h"><span class="sec-title">' + escapeHtml(u.n) + '</span></div>' + renderRich(u.x) + '</section>'; });
+    return html;
+  }
+  const q = ($('termQ').value || '').trim();
+  if (state.termOpen) {
+    const t = state.study.terms.find((x) => x.n === state.termOpen);
+    if (t) return '<button type="button" class="linkbtn" id="termBack">← 용어 목록</button><h3>' + escapeHtml(t.n) + '</h3>' + renderRich(t.x);
+  }
+  const list = state.study.terms.filter((t) => !q || t.n.indexOf(q) >= 0 || t.x.indexOf(q) >= 0).slice(0, 120);
+  let html = '<h3>용어 해설 <span class="muted small">' + (q ? list.length + '건' : state.study.terms.length + '항목') + '</span></h3>';
+  list.forEach((t) => {
+    const first = cleanLines(t.x)[0] || '';
+    html += '<button type="button" class="term-item" data-term="' + escapeHtml(t.n) + '"><b>' + escapeHtml(t.n) + '</b><span>' + escapeHtml(first.slice(0, 80)) + (first.length > 80 ? '…' : '') + '</span></button>';
+  });
+  return html;
 }
 
 function renderStudy() {
   const box = $('studyBody');
-  if (!box || !state.study) return;
+  if (!box) return;
+  document.querySelectorAll('#studyTabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === state.studyTab));
   $('termSearchWrap').hidden = state.studyTab !== 'term';
-  const book = String(state.book);
-  const verse = state.sel[0] || state.verse;
-  if (state.studyTab === 'intro' || state.studyTab === 'gnsb') {
-    const pack = state.studyTab === 'intro' ? state.study.de[book] : state.study.gnsb[book];
-    const label = state.studyTab === 'intro' ? '독일성서공회 책 안내' : '굿뉴스 스터디 바이블';
-    if (!pack) { box.innerHTML = '<p class="muted">이 책의 ' + label + '가 없습니다.</p>'; return; }
-    let html = '<h3>' + escapeHtml(pack.title || bookById(state.book).ko) + ' · ' + label + '</h3>';
-    html += '<div class="sec">' + linkRefs(pack.intro) + '</div>';
-    const secs = Array.isArray(pack.sections) ? pack.sections : Object.values(pack.sections || {});
-    secs.forEach((sec) => {
-      html += '<div class="sec"><div class="sec-t">' + escapeHtml(sec.t || '') + '</div>' + linkRefs(sec.x) + '</div>';
-    });
-    box.innerHTML = html;
-    return;
-  }
-  if (state.studyTab === 'cri') {
-    const notes = (state.study.cri.books && state.study.cri.books[book]) || [];
-    const chapNotes = notes.filter((n) => noteMatchesChapter(n.r, state.book, state.chapter));
-    const show = chapNotes.length ? chapNotes : notes.slice(0, 12);
-    let html = '<h3>본문 비평 주 · ' + bookById(state.book).ko + ' ' + state.chapter + '장</h3>';
-    if (!notes.length) html += '<p class="muted">이 책의 본문비평 주가 파일에 없습니다.</p>';
-    show.forEach((n) => {
-      const on = verse && String(n.r).indexOf(':' + verse) >= 0;
-      html += '<div class="note' + (on ? ' on' : '') + '"><span class="ref">' + escapeHtml(n.r) + '</span> ' + linkRefs(n.x) + '</div>';
-    });
-    if (!chapNotes.length && notes.length) html += '<p class="muted">이 장에 해당하는 주를 못 찾아 이 책 주를 보여 줍니다.</p>';
-    box.innerHTML = html;
-    const cur = box.querySelector('.note.on');
-    if (cur) cur.scrollIntoView({ block: 'nearest' });
-    return;
-  }
-  if (state.studyTab === 'unit') {
-    let html = '<h3>도량형 및 화폐 단위</h3>';
-    state.study.units.forEach((u) => {
-      html += '<div class="sec"><div class="sec-t">' + escapeHtml(u.n) + '</div>' + linkRefs(u.x) + '</div>';
-    });
-    box.innerHTML = html;
-    return;
-  }
-  const q = ($('termQ').value || '').trim();
-  const list = state.study.terms.filter((t) => !q || t.n.indexOf(q) >= 0 || t.x.indexOf(q) >= 0).slice(0, 80);
-  if (state.termOpen) {
-    const t = state.study.terms.find((x) => x.n === state.termOpen);
-    if (t) {
-      box.innerHTML = '<button type="button" class="ghost" id="termBack">목록</button><h3>' + escapeHtml(t.n) + '</h3><div class="sec">' + linkRefs(t.x) + '</div>';
-      return;
-    }
-  }
-  let html = '<h3>용어 해설' + (q ? ' · ' + list.length + '건' : ' · ' + state.study.terms.length + '항목') + '</h3>';
-  list.forEach((t) => {
-    html += '<button type="button" class="term-item" data-term="' + escapeHtml(t.n) + '"><b>' + escapeHtml(t.n) + '</b>' + escapeHtml(t.x.slice(0, 90)) + (t.x.length > 90 ? '…' : '') + '</button>';
-  });
-  box.innerHTML = html;
+  $('studyInline').classList.toggle('on', state.inline);
+  $('studyInline').textContent = state.inline ? '본문 속 해설 켬' : '본문 속 해설 끔';
+  $('studyDock').textContent = state.studyDock === 'bottom' ? '옆으로' : '아래로';
+  if (!state.study) { box.innerHTML = '<div class="study-inner"><p class="muted">해설을 불러오는 중입니다.</p></div>'; return; }
+  const keep = state.studyTab === state.lastStudyTab && state.lastStudyPlace === state.book + '-' + state.chapter ? box.scrollTop : 0;
+  box.innerHTML = '<div class="study-inner">' + studyHtml() + '</div>';
+  box.scrollTop = keep;
+  state.lastStudyTab = state.studyTab;
+  state.lastStudyPlace = state.book + '-' + state.chapter;
+  const cur = box.querySelector('.note.on') || (state.studyTab === 'cri' ? box.querySelector('.note.here') : null);
+  if (cur && !keep) cur.scrollIntoView({ block: 'nearest' });
+}
+
+function applyStudyLayout() {
+  document.body.classList.toggle('study-off', !state.studyOn);
+  document.body.classList.toggle('study-bottom', state.studyDock === 'bottom');
+  const st = $('study');
+  if (state.studyW) st.style.setProperty('--studyW', state.studyW + 'px'); else st.style.removeProperty('--studyW');
+  if (state.studyH) st.style.setProperty('--studyH', state.studyH + 'px'); else st.style.removeProperty('--studyH');
+  $('studyToggle').textContent = state.studyOn ? '해설 숨기기' : '해설 보기';
+}
+
+function onStudyRef(event) {
+  const ref = event.target.closest('.ref');
+  if (!ref) return false;
+  const b = Number(ref.dataset.b);
+  const c = Number(ref.dataset.c);
+  const v = Number(ref.dataset.v);
+  if (b && c) openPlace(b, c, v || null, []);
+  return true;
 }
 
 function bindStudyClicks() {
   $('studyBody').onclick = (event) => {
-    const back = event.target.closest('#termBack');
-    if (back) { state.termOpen = null; renderStudy(); return; }
+    if (onStudyRef(event)) return;
+    if (event.target.closest('#termBack')) { state.termOpen = null; renderStudy(); return; }
     const item = event.target.closest('.term-item');
-    if (item) { state.termOpen = item.dataset.term; renderStudy(); return; }
-    const ref = event.target.closest('.ref');
-    if (!ref) return;
-    const parsed = parseQuery(ref.textContent.trim());
-    if (parsed && parsed.book) openPlace(parsed.book, parsed.chapter, parsed.verse, []);
+    if (item) { state.termOpen = item.dataset.term; renderStudy(); $('studyBody').scrollTop = 0; return; }
+    const link = event.target.closest('.linkbtn[data-tab]');
+    if (link) { state.studyTab = link.dataset.tab; savePrefs(); renderStudy(); }
   };
+  $('board').addEventListener('click', (event) => {
+    if (event.target.closest('.inote') && onStudyRef(event)) return;
+    const more = event.target.closest('.inote-more');
+    if (!more) return;
+    const key = more.dataset.key;
+    const box = more.closest('.inote');
+    if (state.openNotes.has(key)) { state.openNotes.delete(key); box.classList.add('clamp'); more.textContent = '펼쳐 읽기'; }
+    else { state.openNotes.add(key); box.classList.remove('clamp'); more.textContent = '접기'; }
+  });
 }
 
 function startApp() {
@@ -1178,8 +1398,10 @@ function startApp() {
   renderChrome();
   openPlace(state.book, state.chapter, state.verse, []);
   VERSIONS.slice(0, 4).forEach((v) => loadVersion(v.id).catch(() => {}));
-  loadStudy().then(() => renderStudy());
+  applyStudyLayout();
   bindStudyClicks();
+  renderStudy();
+  loadStudy().then(() => { renderBoard(); refreshSelection(); renderStudy(); });
 }
 
 function boot() {
@@ -1212,33 +1434,34 @@ function boot() {
   $('fontDown').onclick = () => { state.font = Math.max(15, state.font - 1); savePrefs(); renderChrome(); };
   $('fontUp').onclick = () => { state.font = Math.min(28, state.font + 1); savePrefs(); renderChrome(); };
   $('nightBtn').onclick = () => { state.night = !state.night; savePrefs(); renderChrome(); };
-  $('studyToggle').onclick = () => {
-    document.body.classList.toggle('study-off');
-    $('studyToggle').textContent = document.body.classList.contains('study-off') ? '해설 보기' : '해설 숨기기';
-  };
+  $('studyToggle').onclick = () => { state.studyOn = !state.studyOn; savePrefs(); applyStudyLayout(); };
   document.querySelectorAll('#studyTabs button').forEach((btn) => {
-    btn.onclick = () => {
-      state.studyTab = btn.dataset.tab;
-      state.termOpen = null;
-      document.querySelectorAll('#studyTabs button').forEach((b) => b.classList.toggle('on', b === btn));
-      renderStudy();
-    };
+    btn.onclick = () => { state.studyTab = btn.dataset.tab; state.termOpen = null; savePrefs(); renderStudy(); };
   });
+  $('studyInline').onclick = () => { state.inline = !state.inline; savePrefs(); renderBoard(); refreshSelection(); renderStudy(); };
+  $('studyDock').onclick = () => { state.studyDock = state.studyDock === 'bottom' ? 'side' : 'bottom'; savePrefs(); applyStudyLayout(); renderStudy(); };
   $('termQ').addEventListener('input', () => { state.termOpen = null; renderStudy(); });
-  let drag = false;
-  $('studyDrag').onmousedown = (event) => {
-    drag = true;
+  $('studyDrag').addEventListener('pointerdown', (event) => {
     event.preventDefault();
+    const st = $('study');
+    const side = getComputedStyle($('reader')).flexDirection === 'row';
+    const startX = event.clientX;
     const startY = event.clientY;
-    const startH = $('study').offsetHeight;
+    const startW = st.offsetWidth;
+    const startH = st.offsetHeight;
     const move = (ev) => {
-      if (!drag) return;
-      $('study').style.height = Math.max(120, Math.min(window.innerHeight * 0.7, startH - (ev.clientY - startY))) + 'px';
+      if (side) {
+        state.studyW = Math.round(Math.max(340, Math.min(window.innerWidth * 0.65, startW - (ev.clientX - startX))));
+        st.style.setProperty('--studyW', state.studyW + 'px');
+      } else {
+        state.studyH = Math.round(Math.max(140, Math.min(window.innerHeight * 0.75, startH - (ev.clientY - startY))));
+        st.style.setProperty('--studyH', state.studyH + 'px');
+      }
     };
-    const up = () => { drag = false; document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
-    document.addEventListener('mousemove', move);
-    document.addEventListener('mouseup', up);
-  };
+    const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); savePrefs(); };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+  });
   $('modeBtn').onclick = () => { state.readMode = !state.readMode; savePrefs(); openPlace(state.book, state.chapter, state.verse, state.terms); };
   $('bookBtn').onclick = openBooks;
   $('planBtn').onclick = openPlan;

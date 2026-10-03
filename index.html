@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20261002a" />
+  <link rel="stylesheet" href="./styles.css?v=20261003b" />
 </head>
 <body>
   <div class="gate" id="gate">
@@ -64,6 +64,7 @@
       <div class="abbrs" id="abbrs"></div>
     </div>
 
+    <div class="reader" id="reader">
     <div class="read-scroll" id="scroller">
       <div id="results" hidden></div>
       <div id="board" style="--cols: 3"></div>
@@ -81,19 +82,27 @@
     </div>
 
     <div class="study" id="study">
-      <div class="study-drag" id="studyDrag" title="높이를 끌어서 조절"></div>
-      <div class="study-tabs" id="studyTabs">
-        <button type="button" class="on" data-tab="intro">책 안내</button>
-        <button type="button" data-tab="gnsb">굿뉴스</button>
-        <button type="button" data-tab="cri">본문비평</button>
-        <button type="button" data-tab="term">용어</button>
-        <button type="button" data-tab="unit">단위</button>
+      <div class="study-drag" id="studyDrag" title="끌어서 크기 조절"></div>
+      <div class="study-head">
+        <div class="study-tabs" id="studyTabs">
+          <button type="button" class="on" data-tab="chapter">이 장</button>
+          <button type="button" data-tab="intro">책 안내</button>
+          <button type="button" data-tab="gnsb">굿뉴스</button>
+          <button type="button" data-tab="cri">본문비평</button>
+          <button type="button" data-tab="term">용어</button>
+          <button type="button" data-tab="unit">단위</button>
+        </div>
+        <div class="study-tools">
+          <button type="button" id="studyInline" class="on">본문 속 해설 켬</button>
+          <button type="button" id="studyDock">아래로</button>
+        </div>
       </div>
       <div class="study-search" id="termSearchWrap" hidden>
-        <input id="termQ" type="search" placeholder="용어 이름 찾기" />
+        <input id="termQ" type="search" placeholder="용어 이름이나 낱말로 찾기  예: 가나안, 제사장" />
       </div>
-      <div class="study-body" id="studyBody">해설을 불러오는 중입니다.</div>
-      <div class="study-src">자료: 대한성서공회 CD-ROM 성경 2.0 · 독일성서공회 해설관주 · 굿뉴스 스터디 바이블. 개인 소장본 개인용.</div>
+      <div class="study-body" id="studyBody"><div class="study-inner"><p class="muted">해설을 불러오는 중입니다.</p></div></div>
+      <div class="study-src">자료: 대한성서공회 CD-ROM 성경 2.0 · 독일성서공회 해설관주 · 굿뉴스 스터디 바이블 · 개인 소장본 개인용</div>
+    </div>
     </div>
 
     <div class="action" id="action" hidden>
@@ -189,6 +198,6 @@
   </dialog>
 
   <div class="toast" id="toast" hidden></div>
-  <script src="./app.js?v=20261002a"></script>
+  <script src="./app.js?v=20261003b"></script>
 </body>
 </html>

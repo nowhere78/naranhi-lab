@@ -443,21 +443,82 @@ body.night .plan-gap.late { color: #f0a08c; }
   padding: 6px 10px;
 }
 
-.study { flex: none; height: 240px; min-height: 120px; max-height: 70vh; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--paper); }
+
+
+/* ---------- 해설: 읽기 좋은 배치 ---------- */
+:root { --note-bg: #fbf5ea; --note-bg2: #f3f6fa; --ref: #1f4e9a; }
+body.night { --note-bg: #2b251e; --note-bg2: #1f2630; --ref: #8fb4ff; }
+.cell p { word-break: keep-all; overflow-wrap: break-word; }
+.reader { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.reader > .read-scroll { flex: 1; min-height: 0; }
+
+.study { position: relative; flex: none; height: var(--studyH, 42vh); min-height: 140px; max-height: 78vh; display: flex; flex-direction: column; border-top: 1px solid var(--line); background: var(--paper); }
 body.study-off .study { display: none; }
-.study-drag { height: 7px; cursor: ns-resize; background: var(--line); }
-.study-tabs { display: flex; gap: 4px; padding: 6px 10px 0; overflow-x: auto; }
-.study-tabs button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; }
+.study-drag { position: absolute; left: 0; right: 0; top: -5px; height: 10px; cursor: ns-resize; z-index: 3; touch-action: none; }
+.study-drag::after { content: ''; position: absolute; left: 50%; top: 3px; width: 48px; height: 4px; margin-left: -24px; border-radius: 4px; background: var(--line); }
+.study-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.study-tabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; }
+.study-tabs button { flex: none; border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 13px; font-size: 0.88rem; }
 .study-tabs button.on { background: var(--accent); color: #fffaf3; border-color: transparent; font-weight: 700; }
-.study-search { padding: 6px 10px 0; }
-.study-search input { width: 100%; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; background: var(--bg); outline: none; }
-.study-body { flex: 1; overflow: auto; padding: 10px 14px 8px; font-size: 0.95rem; line-height: 1.7; white-space: pre-wrap; }
-.study-body h3 { margin: 0 0 8px; font-size: 1rem; color: var(--accent); }
-.study-body .note { padding: 8px 0; border-bottom: 1px solid var(--line); }
-.study-body .note.on { background: rgba(138,90,52,0.08); margin: 0 -8px; padding: 8px; border-radius: 8px; }
-.study-body .ref { color: var(--accent); font-weight: 700; }
-.study-body .sec { margin: 0 0 12px; }
-.study-body .sec-t { font-weight: 700; margin: 0 0 4px; color: var(--accent); }
-.study-src { font-size: 0.72rem; color: var(--muted); padding: 4px 12px 6px; }
-.term-item { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; color: inherit; }
-.term-item b { color: var(--accent); display: block; margin-bottom: 2px; }
+.study-tools { display: flex; gap: 6px; flex: none; }
+.study-tools button { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 5px 11px; font-size: 0.8rem; color: var(--muted); }
+.study-tools button.on { color: var(--accent); border-color: var(--accent); font-weight: 700; }
+.study-search { padding: 8px 14px 0; }
+.study-search input { width: 100%; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; background: var(--bg); outline: none; font-size: 0.95rem; }
+.study-body { flex: 1; overflow: auto; padding: 20px 26px 32px; }
+.study-inner { max-width: 38em; margin: 0 auto; font-size: calc(var(--verse) * 0.92); line-height: 1.9; letter-spacing: -0.01em; word-break: keep-all; overflow-wrap: break-word; color: var(--ink); }
+.study-inner h3 { font-size: 1.15em; margin: 0 0 1em; padding-bottom: 0.5em; border-bottom: 2px solid var(--accent); color: var(--ink); }
+.study-inner p { margin: 0 0 0.8em; text-indent: 1em; }
+.study-inner .muted { text-indent: 0; }
+.study-inner .small { font-size: 0.8em; font-weight: 400; }
+.sec { margin: 0 0 1.8em; }
+.sec-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin: 0 0 0.45em; }
+.rng { color: var(--ref); font-weight: 800; white-space: nowrap; }
+.sec-title { font-weight: 700; }
+.src-chip { font-size: 0.7em; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; line-height: 1.7; }
+.rich-h { margin: 0.6em 0 0.5em; font-size: 1em; color: var(--accent); }
+.rich-rel { text-indent: 0 !important; color: var(--muted); font-size: 0.88em; }
+.o-row { display: grid; grid-template-columns: 7em 1fr; gap: 12px; padding: 4px 0; border-bottom: 1px dotted var(--line); }
+.o-range { font-weight: 700; color: var(--ref); }
+.o-t { font-weight: 600; }
+.o-sub { padding: 2px 0 2px 8em; color: var(--ink); font-size: 0.95em; }
+.ref { color: var(--ref); cursor: pointer; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ref) 35%, transparent); text-underline-offset: 3px; }
+.ref:hover { text-decoration-color: var(--ref); }
+.note { padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.note > .rng { display: block; margin-bottom: 2px; }
+.note p { text-indent: 0; margin-bottom: 0.4em; }
+.note.here { border-left: 3px solid var(--line); padding-left: 12px; }
+.note.on { background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: 10px; padding: 12px 14px; border-left: 3px solid var(--accent); }
+.linkbtn { border: 0; background: transparent; color: var(--accent); font-weight: 700; padding: 2px 0; cursor: pointer; font-size: 0.9em; }
+.term-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 10px 2px; cursor: pointer; color: inherit; font-size: 0.95em; line-height: 1.6; }
+.term-item b { display: block; color: var(--accent); font-size: 1.02em; }
+.term-item span { color: var(--muted); }
+.term-item:hover { background: var(--bg); }
+.study-src { font-size: 0.72rem; color: var(--muted); padding: 5px 14px 7px; border-top: 1px solid var(--line); }
+
+/* 넓은 화면: 해설창을 오른쪽 세로로 */
+@media (min-width: 1100px) {
+  body:not(.study-bottom) .reader { flex-direction: row; }
+  body:not(.study-bottom) .study { height: auto; max-height: none; width: var(--studyW, 40%); min-width: 360px; max-width: 65vw; border-top: 0; border-left: 1px solid var(--line); }
+  body:not(.study-bottom) .study-drag { top: 0; bottom: 0; left: -5px; right: auto; width: 10px; height: auto; cursor: ew-resize; }
+  body:not(.study-bottom) .study-drag::after { left: 3px; top: 50%; width: 4px; height: 48px; margin: -24px 0 0; }
+}
+@media (max-width: 700px) {
+  .study-body { padding: 14px 16px 24px; }
+  .o-row { grid-template-columns: 6em 1fr; }
+  .o-sub { padding-left: 1.2em; }
+  .study-tools button { padding: 4px 8px; }
+}
+
+/* 본문 속 해설 상자 (인쇄본처럼) */
+.inote { grid-column: 1 / -1; justify-self: start; width: min(100%, 46em); box-sizing: border-box; margin: 12px 0 18px; padding: 14px 20px 12px; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 10px; background: var(--note-bg); font-size: calc(var(--verse) * 0.88); line-height: 1.85; letter-spacing: -0.01em; word-break: keep-all; overflow-wrap: break-word; }
+body.read-mode .inote { width: 100%; }
+.inote-label { font-size: 0.76em; font-weight: 700; color: var(--muted); letter-spacing: 0.02em; margin-bottom: 2px; }
+.inote-title { font-weight: 800; font-size: 1.05em; margin-bottom: 6px; color: var(--ink); }
+.inote-body p { margin: 0 0 0.6em; text-indent: 1em; }
+.inote-body .o-row { grid-template-columns: 6.5em 1fr; }
+.inote.cri { border-left-color: var(--ref); background: var(--note-bg2); font-size: calc(var(--verse) * 0.82); padding: 10px 16px 6px; margin: 4px 0 14px; }
+.inote.cri .inote-body p { text-indent: 0; }
+.inote.gnsb { border-left-color: #5f8f62; }
+.inote.clamp .inote-body { max-height: 9.3em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); }
+.inote-more { border: 0; background: transparent; color: var(--accent); font-weight: 700; padding: 2px 0 4px; cursor: pointer; font-size: 0.9em; }
