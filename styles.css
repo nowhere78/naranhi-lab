@@ -525,3 +525,29 @@ body.read-mode .inote { width: 100%; }
 
 .inote + .inote { margin-top: -6px; }
 .inote.intro .inote-title, .inote.sec-box .inote-title { margin-bottom: 4px; }
+
+/* 해설관주 탭 */
+.cm-top { margin-bottom: 0.6em; }
+.cm-src { font-size: 0.75em; font-weight: 700; color: var(--muted); letter-spacing: 0.03em; }
+.cm-top h3 { margin-top: 0.15em; }
+.cm-here { font-size: 0.82em; color: var(--muted); margin: -0.4em 0 0.4em; }
+.cm-here b { color: var(--ink); }
+.cm-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 1.2em; padding-bottom: 1em; border-bottom: 1px solid var(--line); }
+.cm-chip { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; padding: 4px 9px; font-size: 0.78em; text-align: left; line-height: 1.45; cursor: pointer; color: var(--ink); }
+.cm-chip .rng { font-weight: 700; }
+.cm-chip.cur { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--paper)); font-weight: 700; }
+.cm-sec { margin: 0 0 0.9em; border-bottom: 1px solid var(--line); padding-bottom: 0.6em; }
+.cm-sec > summary { list-style: none; cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 6px 0; }
+.cm-sec > summary::-webkit-details-marker { display: none; }
+.cm-sec > summary::before { content: '▸'; color: var(--muted); font-size: 0.8em; }
+.cm-sec[open] > summary::before { content: '▾'; }
+.cm-sec .sec-title { font-weight: 700; }
+.cm-sec.cur { border-left: 3px solid var(--accent); padding-left: 12px; margin-left: -15px; }
+.here-chip { font-size: 0.7em; color: #fffaf3; background: var(--accent); border-radius: 999px; padding: 0 8px; line-height: 1.7; }
+.cm-body { padding-top: 0.3em; }
+.study-tabs button { font-size: 0.92rem; }
+
+.cm-sec.outline { padding: 6px 0 8px; }
+.cm-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding-left: 1.05em; }
+.cm-sec.outline.cur { border-left: 3px solid var(--accent); padding-left: 12px; margin-left: -15px; }
+.cm-foot { text-indent: 0 !important; margin-top: 0.6em; }
