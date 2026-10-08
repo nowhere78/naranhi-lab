@@ -5,17 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f3eee4" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>나란히 성경 · 작업용</title>
+  <title>나란히 성경 · 본문해설판</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%238a5a34'/%3E%3Cpath d='M8 7h7.2a5 5 0 0 1 5 5V25H11.5A3.5 3.5 0 0 0 8 21.5V7z' fill='%23fffaf2'/%3E%3Cpath d='M24 7h-7.2v18H20.5A3.5 3.5 0 0 0 24 21.5V7z' fill='%23f0ddb8'/%3E%3C/svg%3E" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css?v=20261006a" />
+    <link rel="stylesheet" href="./styles.css?v=20261007a" />
 </head>
 <body>
   <div class="gate" id="gate">
     <form class="gate-card" id="gateForm">
-      <h1>나란히 성경 · 작업용</h1>
+      <h1>나란히 성경 · 본문해설판</h1>
       <p>이 주소는 손보는 곳입니다. 비밀번호를 넣어 주세요.</p>
       <input id="pw" type="password" inputmode="numeric" autocomplete="current-password" placeholder="****" />
       <button class="go" type="submit">들어가기</button>
@@ -24,7 +21,7 @@
   </div>
 
   <div class="app" id="app" hidden>
-    <div class="lab-banner">작업용 복사본 · 여기 고친 것은 본 주소에 바로 반영되지 않습니다</div>
+    <div class="lab-banner" hidden>작업용 복사본 · 여기 고친 것은 본 주소에 바로 반영되지 않습니다</div>
     <div class="chrome">
       <header class="top">
         <div class="head-btns">
@@ -86,8 +83,8 @@
       <div class="study-head">
         <div class="study-tabs" id="studyTabs">
           <button type="button" class="on" data-tab="de">해설관주</button>
+          <button type="button" data-tab="hae">본문해설</button>
           <button type="button" data-tab="gnsb">굿뉴스</button>
-          <button type="button" data-tab="chrono">연대표</button>
           <button type="button" data-tab="cri">본문비평</button>
           <button type="button" data-tab="term">용어</button>
           <button type="button" data-tab="unit">단위</button>
@@ -96,6 +93,7 @@
           <button type="button" id="studyDock">아래로</button>
         </div>
       </div>
+      <div class="extlinks" id="extlinks"></div>
       <div class="study-search" id="termSearchWrap" hidden>
         <input id="termQ" type="search" placeholder="용어 이름이나 낱말로 찾기  예: 가나안, 제사장" />
       </div>
@@ -197,6 +195,6 @@
   </dialog>
 
   <div class="toast" id="toast" hidden></div>
-  <script src="./app.js?v=20261006a"></script>
+  <script src="./app.js?v=20261007c"></script>
 </body>
 </html>

@@ -1,3 +1,15 @@
+window.__NBC = window.__NBC || {};
+window.__NB = function (key, data) { window.__NBC[key] = data; };
+function loadData(key) {
+  if (window.__NBC[key]) return Promise.resolve(window.__NBC[key]);
+  return new Promise(function (resolve, reject) {
+    var s = document.createElement('script');
+    s.src = './' + key + '.js';
+    s.onload = function () { var d = window.__NBC[key]; s.remove(); d ? resolve(d) : reject(new Error(key)); };
+    s.onerror = function () { s.remove(); reject(new Error(key)); };
+    document.head.appendChild(s);
+  });
+}
 const CHAPTERS = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
 const EXTRA_CHAPTERS = [14, 16, 19, 51, 6, 16, 15, 7, 14];
 const TOTAL = CHAPTERS.reduce((sum, n) => sum + n, 0);
@@ -123,10 +135,6 @@ const state = {
   inline: true,
   study: null,
   studyIdx: {},
-  chronoEra: null,
-  chronoZ: 0.75,
-  chronoZF: 1,
-  chronoX: 0,
   openNotes: new Set(),
   termOpen: null,
   plan: { start: null, perDay: 4 },
@@ -141,7 +149,7 @@ const $ = (id) => document.getElementById(id);
 
 function loadPrefs() {
   try {
-    const saved = JSON.parse(localStorage.getItem('naranhi2') || '{}');
+    const saved = JSON.parse(localStorage.getItem('naranhi-hae') || '{}');
     if (saved.book) state.book = saved.book;
     if (saved.chapter) state.chapter = saved.chapter;
     if (Array.isArray(saved.versions) && saved.versions.length) {
@@ -165,7 +173,7 @@ function loadPrefs() {
 }
 
 function savePrefs() {
-  localStorage.setItem('naranhi2', JSON.stringify({
+  localStorage.setItem('naranhi-hae', JSON.stringify({
     book: state.book,
     chapter: state.chapter,
     versions: state.versions,
@@ -256,11 +264,7 @@ function paint(el, text) {
 function loadVersion(id) {
   if (state.data.has(id)) return Promise.resolve(state.data.get(id));
   if (state.pending.has(id)) return state.pending.get(id);
-  const job = fetch('./b-' + id + '.json')
-    .then((res) => {
-      if (!res.ok) throw new Error(id);
-      return res.json();
-    })
+  const job = loadData('b-' + id)
     .then((data) => {
       state.data.set(id, data);
       state.pending.delete(id);
@@ -1098,15 +1102,15 @@ async function loadStudy() {
   if (state.study) return state.study;
   try {
     const [de, gnsb, cri, terms, units] = await Promise.all([
-      fetch('./study/de.json').then((r) => r.json()),
-      fetch('./study/gnsb.json').then((r) => r.json()),
-      fetch('./study/cri.json').then((r) => r.json()),
-      fetch('./study/terms.json').then((r) => r.json()),
-      fetch('./study/units.json').then((r) => r.json())
+      loadData('study-de'),
+      loadData('study-gnsb'),
+      loadData('study-cri'),
+      loadData('study-terms'),
+      loadData('study-units')
     ]);
-    state.study = { de, gnsb, cri, terms, units };
+    state.study = { de, gnsb, cri, terms, units, hae: null };
   } catch (err) {
-    state.study = { de: {}, gnsb: {}, cri: { intro: '', books: {} }, terms: [], units: [] };
+    state.study = { de: {}, gnsb: {}, cri: { intro: '', books: {} }, terms: [], units: [] , hae: {} };
     toast('해설 자료를 불러오지 못했습니다');
   }
   state.studyIdx = {};
@@ -1266,126 +1270,9 @@ function secCovers(s, chapter, verse) {
   return true;
 }
 
-
-/* ---------- 연대표 (굿뉴스 스터디 바이블) ---------- */
-const CHRONO_IMG = './study/chrono.gif';
-const CHRONO = {"w":4000,"h":850,"eras":[{"n":"시작","x":100,"s":["하나님께서 선한 세상을 창조하시다. 그러나 악이 인류에게 영향을 주기 시작하다.","아담과 하와(이브)","노아와 홍수","바벨탑"]},{"n":"이스라엘의 조상들","x":472,"s":["하나님께서 아브라함을 부르시고 그에게 하나님이 주신 땅에 살면서 뭇 민족의 조상이 되리라고 약속하시다.","아브라함의 손자 야곱이 이스라엘이라는 이름을 부여받다. 야곱에게 열두 아들이 태어나고 그들로부터 이스라엘의 열두 지파가 생겨나다.","요셉이라는 한 아들이 애굽 왕을 보좌하는 신하가 되고 자기 가족을 애굽으로 데려가서 살게 하다."]},{"n":"애굽에서의 노예살이와 해방","x":731,"s":["이스라엘의 후손들이 애굽에서 450년 동안 노예살이를 하다.","하나님께서 이스라엘을 애굽에서 이끌어내고자 모세를 부르실 때 아브라함에게 주셨던 약속이 갱신되다.","40년 동안 이스라엘 백성이 광야에서 유랑하다.","하나님께서 시내 산에서 이스라엘 백성에게 율법을 주시고 언약 체결을 통해서 이스라엘 백성과 특별한 관계를 맺으시다."]},{"n":"사사들","x":1102,"s":["이스라엘 백성들이 가나안을 정복하고 정착하게 되면서 하나님의 약속이 실현되기 시작하다.","그렇지만, 그들은 아직 국가가 아니다. 그들은 사사들로 알려진 여러 영웅들의 지배를 받는 느슨한 형태의 지파 연합이다."]},{"n":"왕국시대","x":1544,"s":["지파들이 첫 번째 왕 사울의 인도로 국가로 연합되다.","다윗이 예루살렘을 수도로 삼고 온 나라가 하나님께 순종하도록 인도하다.","하나님께서 다윗의 후손들이 왕위를 계승하게 되리라고 약속하시다.","다윗의 아들 솔로몬이 예루살렘에 이스라엘의 삶에서 중심 역할을 하는 성전을 세우다."]},{"n":"분열왕국","x":1912,"s":["왕국이 둘로 분열되다. 북 왕국 이스라엘이 사마리아를 수도로 삼다. 남 왕국 유다는 예루살렘을 중심으로 존재하고 다윗의 후손들이 계속 통치하다.","이 기간 동안 예언자들이 왕과 백성들에게 하나님의 언약을 기억하라고 외치면서 하나님의 율법을 따르라고 촉구하다. 그렇지 않으면 심판에 직면하게 될 것이라고 선포하다."]},{"n":"유다 최후의 날","x":2271,"s":["주전 722년 북 왕국 이스라엘이 앗수르에게 망하고 많은 사람들이 예언대로 포로로 끌려가다.","북 왕국 이스라엘에서 활동한 유명한 선지자들은 엘리야, 엘리사, 아모스, 호세아이다.","남 왕국 유다에서 활동한 유명한 선지자들은 이사야와 미가이다.","주전 605년 이래 유다 백성들이 바벨론으로 포로로 끌려가게 되다.","주전 587년이나 586년에 예루살렘이 함락되고 성전이 파괴되다. 다윗의 후손으로 오실 왕이 다스릴 나라를 통해 새 언약 관계가 이루어질 것이 약속되다."]},{"n":"포로기와 귀환","x":2653,"s":["포로기가 대략 70년 간 지속되다.","바사의 왕 고레스가 주전 538년 유대인들의 예루살렘 귀환을 허락하다.","새 성전의 기초가 놓이다.","여러 해에 걸쳐 많은 포로민들이 귀환하다. 예루살렘이 점진적으로 재건축되다. 그러나 선지자들이 갈망하던 희망과 비전은 아직 성취되지 아니하다."]},{"n":"신구약 중간기","x":3098,"s":["333년 알렉산더 대왕이 팔레스틴을 그리스 지배하에 두다.","323-166년 팔레스틴이 알렉산더의 휘하 장수였던 톨레미와 셀류시드의 지배를 받다.","166-163년 유다 마카베오가 주동한 유대인의 반란이 유다의 독립을 다시 가져오게 하다. 팔레스틴을 유다의 가문인 하스몬 왕조가 다스리다.","로마의 장군 폼페이가 주전 63년 예루살렘을 침공하다. 팔레스틴을 로마가 임명한 꼭두각시 왕들이 지배하다. 그런 왕 중의 하나가 주전 37-4년 팔레스틴을 지배하였던 헤롯 대왕이다.","주전 6년 경 예수 그리스도가 탄생하다. 주전에서 주후로 연대 계산이 변경되면서 몇 년이라는 기간이 \"사라진 것\"으로 훗날 판명되다."]},{"n":"예수의 생애","x":3242,"s":["로마가 팔레스틴을 통치할 때 다윗의 후손인 예수가 태어나다. 삼십 세 가량 되었을 때 예수가 하나님의 나라에 대하여 가르치며 사람들의 병을 고쳐줌으로 그 나라가 어떤 것인지를 보여주기 시작하다.","예수는 하나님과 아주 독특한 관계를 지니고 있었으나 당시 종교 당국은 이것을 문제 삼아서 예수를 십자가 형에 처하고자 도모하다.","\"최후의 만찬\" 때 예수가 새 언약을 수립하고 그 제자들에게 하나님이 주시는 선물을 약속하다. 이 선물로 제자들은 항상 그랬었듯이 하나님과 특별한 관계를 맺을 것이다.","예수께서 십자가에서 돌아가시다. 그러나 다시 부활하시고 승천하시기 전까지 제자들과 그 밖의 사람들 앞에 나타나시다."]},{"n":"초기 교회","x":3546,"s":["예수를 따르던 제자들이 하나님의 선물인 성령을 받고 하나님의 계심과 권능을 새롭게 체험하게 되다.","기독교 신앙 공동체가 자라고 성장하게 되다. 기독교 신앙 공동체는 유대교의 소종파가 아닌 기독교 교회가 되었다. 이 교회의 구성원은, 민족과 배경이 다르지만, 예수께서 사람과 하나님 사이에 전혀 새로운 관계를 수립할 수 있도록 하신 구주이심을 믿는 수많은 사람들로 이루어졌다.","신약의 서신들과 계시록은 교회 지도자들이 기록하였다. 이 기록들은 사람들에게 믿음이 어떻게 일상 생활에 영향을 끼치며 미래에 대한 희망이 무엇인지를 깨닫게 해준다."]}]};
-
-// 지금 읽는 곳이 연대표의 어느 시대인지 (확실한 책만 연결)
-function eraForPlace(book, ch) {
-  if (book === 1) return ch <= 11 ? 0 : 1;
-  if (book >= 2 && book <= 5) return 2;
-  if (book >= 6 && book <= 8) return 3;
-  if (book === 9 || book === 10 || book === 13) return 4;
-  if (book === 11) return ch <= 11 ? 4 : 5;
-  if (book === 12) return ch <= 17 ? 5 : 6;
-  if (book === 14) return ch <= 9 ? 4 : (ch <= 28 ? 5 : 6);
-  if (book >= 15 && book <= 17) return 7;
-  if (book >= 40 && book <= 43) return 9;
-  if (book >= 44 && book <= 66) return 10;
-  return null;
-}
-
-function chronoPanelHtml(full) {
-  const z = full ? state.chronoZF : state.chronoZ;
-  const ctx = full ? 'full' : 'panel';
-  const cur = eraForPlace(state.book, state.chapter);
-  const sel = state.chronoEra;
-  const E = CHRONO.eras;
-  let html = '';
-  if (!full) {
-    const unit = state.book === 19 ? '편' : '장';
-    html += '<div class="cm-top"><div class="cm-src">굿뉴스 스터디 바이블</div><h3>연대표</h3><div class="cm-here">' +
-      (cur !== null ? '지금 읽는 곳 <b>' + escapeHtml(bookById(state.book).ko + ' ' + state.chapter + unit) + '</b> · <b>' + escapeHtml(E[cur].n) + '</b> 시대' : '시대 이름을 누르면 그 구간으로 이동하고 설명이 나옵니다') + '</div></div>';
-  }
-  html += '<nav class="cm-nav chrono-nav">';
-  E.forEach((e, i) => { html += '<button type="button" class="cm-chip' + (i === cur ? ' cur' : '') + (i === sel ? ' sel' : '') + '" data-chrono-era="' + i + '">' + escapeHtml(e.n) + '</button>'; });
-  html += '</nav>';
-  if (sel !== null && E[sel]) {
-    html += '<div class="chrono-card"><h4>' + escapeHtml(E[sel].n) + (sel === cur ? ' <span class="here-chip">읽는 중</span>' : '') + '</h4><ul>' + E[sel].s.map((s) => '<li>' + escapeHtml(s) + '</li>').join('') + '</ul></div>';
-  } else {
-    html += '<p class="muted small chrono-hint">위 시대 이름이나 그림 맨 위의 파란 띠를 누르면 그 시대의 설명이 나옵니다.</p>';
-  }
-  html += '<div class="chrono-tools"><span class="muted small">크기</span>';
-  [0.5, 0.75, 1].forEach((v) => { html += '<button type="button" class="chrono-zoom' + (v === z ? ' on' : '') + '" data-chrono-zoom="' + v + '" data-ctx="' + ctx + '">' + Math.round(v * 100) + '%</button>'; });
-  if (!full) html += '<button type="button" class="chrono-zoom" data-chrono-full="1">크게 보기</button>';
-  html += '</div>';
-  const W = Math.round(CHRONO.w * z);
-  const H = Math.round(CHRONO.h * z);
-  html += '<div class="chrono-view" data-ctx="' + ctx + '"><div class="chrono-stage" style="width:' + W + 'px;height:' + H + 'px">';
-  html += '<img src="' + CHRONO_IMG + '" alt="성경 연대표" draggable="false" style="width:' + W + 'px;height:' + H + 'px">';
-  if (sel !== null && E[sel]) {
-    const end = sel + 1 < E.length ? E[sel + 1].x : CHRONO.w;
-    html += '<div class="chrono-band" style="left:' + (E[sel].x / CHRONO.w * 100) + '%;width:' + ((end - E[sel].x) / CHRONO.w * 100) + '%"></div>';
-  }
-  E.forEach((e, i) => {
-    const end = i + 1 < E.length ? E[i + 1].x : CHRONO.w;
-    html += '<button type="button" class="chrono-hot' + (i === sel ? ' sel' : '') + '" data-chrono-era="' + i + '" title="' + escapeHtml(e.n) + '" style="left:' + (e.x / CHRONO.w * 100) + '%;width:' + ((end - e.x) / CHRONO.w * 100) + '%"></button>';
-  });
-  html += '</div></div>';
-  return html;
-}
-
-function chronoScrollEra(view, era, z) {
-  if (!view || era === null || !CHRONO.eras[era]) return;
-  view.scrollLeft = Math.max(0, CHRONO.eras[era].x * z - 16);
-}
-
-function chronoRefresh(mode) {
-  const box = $('studyBody');
-  const old = {};
-  document.querySelectorAll('.chrono-view').forEach((v) => { old[v.dataset.ctx] = { l: v.scrollLeft, w: v.scrollWidth, cw: v.clientWidth }; });
-  const top = box ? box.scrollTop : 0;
-  if (state.studyTab === 'chrono' && box) {
-    const inner = box.querySelector('.study-inner');
-    if (inner) inner.innerHTML = chronoPanelHtml(false);
-    box.scrollTop = top;
-  }
-  const f = $('chronoFull');
-  if (f) f.querySelector('.chrono-body').innerHTML = chronoPanelHtml(true);
-  document.querySelectorAll('.chrono-view').forEach((v) => {
-    const z = v.dataset.ctx === 'full' ? state.chronoZF : state.chronoZ;
-    const o = old[v.dataset.ctx];
-    if (mode === 'era' && state.chronoEra !== null) chronoScrollEra(v, state.chronoEra, z);
-    else if (o && o.w) v.scrollLeft = Math.max(0, (o.l + o.cw / 2) / o.w * v.scrollWidth - v.clientWidth / 2);
-  });
-}
-
-function openChronoFull() {
-  let f = $('chronoFull');
-  if (!f) {
-    f = document.createElement('div');
-    f.id = 'chronoFull';
-    f.className = 'chrono-full';
-    f.innerHTML = '<div class="chrono-fbar"><b>성경 연대표</b><button type="button" data-chrono-close="1">닫기</button></div><div class="chrono-body"></div>';
-    document.body.appendChild(f);
-  }
-  f.querySelector('.chrono-body').innerHTML = chronoPanelHtml(true);
-  const cur = eraForPlace(state.book, state.chapter);
-  const v = f.querySelector('.chrono-view');
-  chronoScrollEra(v, state.chronoEra !== null ? state.chronoEra : cur, state.chronoZF);
-}
-
-function onChronoClick(event) {
-  const t = event.target.closest('[data-chrono-era],[data-chrono-zoom],[data-chrono-full],[data-chrono-close]');
-  if (!t) return;
-  if (t.dataset.chronoClose) { const f = $('chronoFull'); if (f) f.remove(); return; }
-  if (t.dataset.chronoFull) { openChronoFull(); return; }
-  if (t.dataset.chronoEra !== undefined) {
-    state.chronoEra = Number(t.dataset.chronoEra);
-    chronoRefresh(t.classList.contains('chrono-hot') ? 'keep' : 'era');
-    return;
-  }
-  if (t.dataset.chronoZoom) {
-    const v = Number(t.dataset.chronoZoom);
-    if (t.dataset.ctx === 'full') state.chronoZF = v; else state.chronoZ = v;
-    chronoRefresh('keep');
-  }
-}
-
 function normTab() {
   if (state.studyTab === 'chapter' || state.studyTab === 'intro') state.studyTab = 'de';
-  if (!['de', 'gnsb', 'chrono', 'cri', 'term', 'unit'].includes(state.studyTab)) state.studyTab = 'de';
+  if (!['de', 'gnsb', 'hae', 'cri', 'term', 'unit'].includes(state.studyTab)) state.studyTab = 'de';
 }
 
 function commentaryHtml(isDe) {
@@ -1430,14 +1317,14 @@ function commentaryHtml(isDe) {
 
 function studyHtml() {
   normTab();
-  if (state.studyTab === 'chrono') return chronoPanelHtml(false);
   const book = state.book;
   const name = bookById(book).ko;
-  if (book > CANON && ['de', 'gnsb', 'cri'].includes(state.studyTab)) {
+  if (book > CANON && ['de', 'gnsb', 'hae', 'cri'].includes(state.studyTab)) {
     return '<h3>' + escapeHtml(name) + '</h3><p class="muted">외경에는 이 해설 자료가 없습니다.</p>';
   }
   if (state.studyTab === 'de') return commentaryHtml(true);
   if (state.studyTab === 'gnsb') return commentaryHtml(false);
+  if (state.studyTab === 'hae') return haeHtml();
   const st = studyFor(book);
   const verse = state.sel[0] || null;
   const unit = book === 19 ? '편' : '장';
@@ -1485,26 +1372,18 @@ function renderStudy() {
   const place = state.book + '-' + state.chapter;
   const samePlace = state.studyTab === state.lastStudyTab && state.lastStudyPlace === place;
   const keep = samePlace ? box.scrollTop : 0;
-  const oldView = box.querySelector('.chrono-view');
-  if (oldView) state.chronoX = oldView.scrollLeft;
-  const curEra = state.studyTab === 'chrono' ? eraForPlace(state.book, state.chapter) : null;
-  if (state.studyTab === 'chrono' && !samePlace && curEra !== null) state.chronoEra = curEra;
-  box.innerHTML = '<div class="study-inner' + (state.studyTab === 'chrono' ? ' wide' : '') + '">' + studyHtml() + '</div>';
+  box.innerHTML = '<div class="study-inner">' + studyHtml() + '</div>';
   state.lastStudyTab = state.studyTab;
   state.lastStudyPlace = place;
   if (samePlace) { box.scrollTop = keep; }
   else {
     box.scrollTop = 0;
     const target = box.querySelector('.cm-sec.cur') || box.querySelector('.note.on');
-    if (target && (state.studyTab === 'de' || state.studyTab === 'gnsb')) box.scrollTop = Math.max(0, target.offsetTop - box.querySelector('.study-inner').offsetTop - 8);
+    if (target && (state.studyTab === 'de' || state.studyTab === 'gnsb' || state.studyTab === 'hae')) box.scrollTop = Math.max(0, target.offsetTop - box.querySelector('.study-inner').offsetTop - 8);
   }
   const on = box.querySelector('.note.on');
   if (on) on.scrollIntoView({ block: 'nearest' });
-  const cv = box.querySelector('.chrono-view');
-  if (cv) {
-    if (!samePlace && curEra !== null) chronoScrollEra(cv, curEra, state.chronoZ);
-    else cv.scrollLeft = state.chronoX;
-  }
+  try { updateExt(); } catch (e) {}
 }
 
 function applyStudyLayout() {
@@ -1527,8 +1406,6 @@ function onStudyRef(event) {
 }
 
 function bindStudyClicks() {
-  document.addEventListener('click', onChronoClick);
-  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { const f = $('chronoFull'); if (f) f.remove(); } });
   $('studyBody').onclick = (event) => {
     if (onStudyRef(event)) return;
     if (event.target.closest('#termBack')) { state.termOpen = null; renderStudy(); return; }
@@ -1713,8 +1590,110 @@ function boot() {
     if (event.key === 'Escape') { if (!$('ctx').hidden) hideMenu(); else clearSelection(); }
   });
 
-  if (sessionStorage.getItem('naranhiOpen') === '1') startApp();
-  else $('pw').focus();
+  startApp();
 }
 
 boot();
+
+function haeSecs(book, chapter) {
+  const key = 'hae' + book;
+  if (!state.studyIdx[key]) {
+    const out = [];
+    const pack = (state.study.hae && state.study.hae[String(book)]) || {};
+    Object.keys(pack).forEach((ch) => {
+      (pack[ch] || []).forEach((s) => {
+        const r = parseRange(s.h || '');
+        out.push({ key: 'h|' + book + '|' + ch + '|' + (s.h || '') + '|' + String(s.x || '').slice(0, 24), ch: +ch, title: s.h || '', x: s.x || '', r: r || { sc: +ch, sv: 1, ec: +ch, ev: 999, src: s.h || '' } });
+      });
+    });
+    out.sort((a, b) => (a.ch - b.ch));
+    state.studyIdx[key] = out;
+  }
+  return state.studyIdx[key];
+}
+function haeHtml() {
+  if (!state.study.hae) {
+    loadData('study-hae').then((d) => { state.study.hae = d; state.studyIdx = {}; renderStudy(); }).catch(() => { state.study.hae = {}; renderStudy(); });
+    return '<div class="cm-top"><div class="cm-src">독일성서공회 해설관주 · 본문 해설 (절 단위)</div></div><p class="muted">절 단위 해설을 불러오는 중입니다.</p>';
+  }
+  const book = state.book;
+  const name = bookById(book).ko;
+  const unit = book === 19 ? '편' : '장';
+  const verse = state.sel[0] || null;
+  const secs = haeSecs(book, state.chapter).filter((s) => s.ch === state.chapter || (s.r && s.r.sc <= state.chapter && state.chapter <= s.r.ec && (s.ch === state.chapter - 1 || s.ch === state.chapter + 1)));
+  const cur = secs.filter((s) => s.r && secCovers(s, state.chapter, verse));
+  let html = '<div class="cm-top"><div class="cm-src">독일성서공회 해설관주 · 본문 해설 (절 단위)</div>';
+  html += '<h3>' + escapeHtml(name) + '</h3>';
+  html += '<div class="cm-here">지금 읽는 곳 <b>' + escapeHtml(name) + ' ' + state.chapter + unit + (verse ? ' ' + verse + '절' : '') + '</b>' + (cur.length ? ' · 아래 <b>' + escapeHtml(rangeText(cur[0].r, book)) + '</b> 해설에 해당합니다' : '') + '</div></div>';
+  if (secs.length) {
+    html += '<nav class="cm-nav">';
+    secs.forEach((s, i) => {
+      html += '<button type="button" class="cm-chip' + (cur.includes(s) ? ' cur' : '') + '" data-sec="' + i + '"><span class="rng">' + escapeHtml(rangeText(s.r, book)) + '</span></button>';
+    });
+    html += '</nav>';
+  }
+  html += '<h4 class="rich-h">절별 해설</h4>';
+  secs.forEach((s, i) => {
+    const on = cur.includes(s);
+    const head = '<span class="rng">' + escapeHtml(rangeText(s.r, book)) + '</span>' + (on ? '<span class="here-chip">읽는 중</span>' : '');
+    if (isEmptyNote(s.x)) {
+      html += '<div class="cm-sec outline' + (on ? ' cur' : '') + '" data-sec="' + i + '"><div class="cm-line">' + head + '</div></div>';
+    } else {
+      html += '<details class="cm-sec' + (on ? ' cur' : '') + '"' + (on ? ' open' : '') + ' data-sec="' + i + '"><summary>' + head + '</summary><div class="cm-body">' + renderRich(s.x, book) + '</div></details>';
+    }
+  });
+  if (!secs.length) html += '<p class="muted">이 ' + unit + '에는 절 단위 해설이 없습니다.</p>';
+  return html;
+}
+
+let __extCache = null;
+function extLinks() {
+  if (__extCache) return Promise.resolve(__extCache);
+  return loadData('extlinks').then((d) => (__extCache = d)).catch(() => (__extCache = { ox: {}, wbc: {} }));
+}
+function extBases() {
+  let o = 'E:\\2. 주석 및 강의\\옥스퍼드 주석';
+  let w = 'E:\\2. 주석 및 강의\\WBC주석';
+  try {
+    const a = localStorage.getItem('naranhi-oxbase');
+    const b = localStorage.getItem('naranhi-wbcbase');
+    if (a) o = a;
+    if (b) w = b;
+  } catch (e) {}
+  return { o: o, w: w };
+}
+function extUrl(base, rel, page) {
+  const bseg = String(base || '').replace(/\\/g, '/').split('/').filter((s, i, a) => s !== '' || i === 0);
+  let b = bseg.map((s, i) => (i === 0 && /^[A-Za-z]:$/.test(s)) ? s : encodeURIComponent(s)).join('/');
+  if (/^[A-Za-z]:\//.test(b)) b = '/' + b;
+  const rseg = String(rel || '').split('/');
+  if (rseg.length > 1 && /^(옥스퍼드|WBC주석)$/.test(decodeURIComponent(rseg[0]))) rseg.shift();
+  const enc = rseg.map(encodeURIComponent).join('/');
+  return 'file://' + b + '/' + enc + '#page=' + page;
+}
+function updateExt() {
+  const box = $('extlinks');
+  if (!box || !state) return;
+  const b = state.book, c = state.chapter;
+  const name = bookById(b).ko;
+  extLinks().then((L) => {
+    const o = ((L.ox || {})[String(b)] || {})[String(c)];
+    const w = ((L.wbc || {})[String(b)] || {})[String(c)];
+    const bases = extBases();
+    const btn = (label, lnk, base) => lnk
+      ? '<a class="extbtn" target="_blank" rel="noreferrer" href="' + extUrl(base, lnk.f, lnk.p) + '">' + label + ' ' + c + '장 ' + lnk.p + '쪽</a>'
+      : '<span class="extbtn off">' + label + ' 없음</span>';
+    box.innerHTML = '<span class="exttitle">' + escapeHtml(name) + ' ' + c + '장 외부주석</span>' + btn('옥스퍼드', o, bases.o) + btn('WBC', w, bases.w) + '<button type="button" class="extset" id="extSetBtn">경로</button>';
+    const sb = $('extSetBtn');
+    if (sb) sb.onclick = extSettings;
+  });
+}
+function extSettings() {
+  const bases = extBases();
+  const o = prompt('옥스퍼드 주석 폴더 (PDF가 있는 곳)', bases.o);
+  if (o === null) return;
+  const w = prompt('WBC 주석 폴더 (PDF가 있는 곳)', bases.w);
+  if (w === null) return;
+  try { localStorage.setItem('naranhi-oxbase', o); localStorage.setItem('naranhi-wbcbase', w); } catch (e) {}
+  updateExt();
+}
