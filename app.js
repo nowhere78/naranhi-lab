@@ -1,15 +1,3 @@
-window.__NBC = window.__NBC || {};
-window.__NB = function (key, data) { window.__NBC[key] = data; };
-function loadData(key) {
-  if (window.__NBC[key]) return Promise.resolve(window.__NBC[key]);
-  return new Promise(function (resolve, reject) {
-    var s = document.createElement('script');
-    s.src = './' + key + '.js';
-    s.onload = function () { var d = window.__NBC[key]; s.remove(); d ? resolve(d) : reject(new Error(key)); };
-    s.onerror = function () { s.remove(); reject(new Error(key)); };
-    document.head.appendChild(s);
-  });
-}
 const CHAPTERS = [50,40,27,36,34,24,21,4,31,24,22,25,29,36,10,13,10,42,150,31,12,8,66,52,5,48,12,14,3,9,1,4,7,3,3,3,2,14,4,28,16,24,21,28,16,16,13,6,6,4,4,5,3,6,4,3,1,13,5,5,3,5,1,1,1,22];
 const EXTRA_CHAPTERS = [14, 16, 19, 51, 6, 16, 15, 7, 14];
 const TOTAL = CHAPTERS.reduce((sum, n) => sum + n, 0);
@@ -149,7 +137,7 @@ const $ = (id) => document.getElementById(id);
 
 function loadPrefs() {
   try {
-    const saved = JSON.parse(localStorage.getItem('naranhi-hae') || '{}');
+    const saved = JSON.parse(localStorage.getItem('naranhi2') || '{}');
     if (saved.book) state.book = saved.book;
     if (saved.chapter) state.chapter = saved.chapter;
     if (Array.isArray(saved.versions) && saved.versions.length) {
@@ -173,7 +161,7 @@ function loadPrefs() {
 }
 
 function savePrefs() {
-  localStorage.setItem('naranhi-hae', JSON.stringify({
+  localStorage.setItem('naranhi2', JSON.stringify({
     book: state.book,
     chapter: state.chapter,
     versions: state.versions,
@@ -264,7 +252,11 @@ function paint(el, text) {
 function loadVersion(id) {
   if (state.data.has(id)) return Promise.resolve(state.data.get(id));
   if (state.pending.has(id)) return state.pending.get(id);
-  const job = loadData('b-' + id)
+  const job = fetch('./b-' + id + '.json')
+    .then((res) => {
+      if (!res.ok) throw new Error(id);
+      return res.json();
+    })
     .then((data) => {
       state.data.set(id, data);
       state.pending.delete(id);
@@ -1102,15 +1094,15 @@ async function loadStudy() {
   if (state.study) return state.study;
   try {
     const [de, gnsb, cri, terms, units] = await Promise.all([
-      loadData('study-de'),
-      loadData('study-gnsb'),
-      loadData('study-cri'),
-      loadData('study-terms'),
-      loadData('study-units')
+      fetch('./study/de.json').then((r) => r.json()),
+      fetch('./study/gnsb.json').then((r) => r.json()),
+      fetch('./study/cri.json').then((r) => r.json()),
+      fetch('./study/terms.json').then((r) => r.json()),
+      fetch('./study/units.json').then((r) => r.json())
     ]);
     state.study = { de, gnsb, cri, terms, units, hae: null };
   } catch (err) {
-    state.study = { de: {}, gnsb: {}, cri: { intro: '', books: {} }, terms: [], units: [] , hae: {} };
+    state.study = { de: {}, gnsb: {}, cri: { intro: '', books: {} }, terms: [], units: [], hae: null };
     toast('해설 자료를 불러오지 못했습니다');
   }
   state.studyIdx = {};
@@ -1383,7 +1375,6 @@ function renderStudy() {
   }
   const on = box.querySelector('.note.on');
   if (on) on.scrollIntoView({ block: 'nearest' });
-  try { updateExt(); } catch (e) {}
 }
 
 function applyStudyLayout() {
@@ -1590,11 +1581,11 @@ function boot() {
     if (event.key === 'Escape') { if (!$('ctx').hidden) hideMenu(); else clearSelection(); }
   });
 
-  startApp();
+  if (sessionStorage.getItem('naranhiOpen') === '1') startApp();
+  else $('pw').focus();
 }
 
 boot();
-
 function haeSecs(book, chapter) {
   const key = 'hae' + book;
   if (!state.studyIdx[key]) {
@@ -1613,7 +1604,7 @@ function haeSecs(book, chapter) {
 }
 function haeHtml() {
   if (!state.study.hae) {
-    loadData('study-hae').then((d) => { state.study.hae = d; state.studyIdx = {}; renderStudy(); }).catch(() => { state.study.hae = {}; renderStudy(); });
+    fetch('./study/hae.json').then((r) => r.json()).then((d) => { state.study.hae = d; state.studyIdx = {}; renderStudy(); }).catch(() => { state.study.hae = {}; renderStudy(); });
     return '<div class="cm-top"><div class="cm-src">독일성서공회 해설관주 · 본문 해설 (절 단위)</div></div><p class="muted">절 단위 해설을 불러오는 중입니다.</p>';
   }
   const book = state.book;
@@ -1644,56 +1635,4 @@ function haeHtml() {
   });
   if (!secs.length) html += '<p class="muted">이 ' + unit + '에는 절 단위 해설이 없습니다.</p>';
   return html;
-}
-
-let __extCache = null;
-function extLinks() {
-  if (__extCache) return Promise.resolve(__extCache);
-  return loadData('extlinks').then((d) => (__extCache = d)).catch(() => (__extCache = { ox: {}, wbc: {} }));
-}
-function extBases() {
-  let o = 'E:\\2. 주석 및 강의\\옥스퍼드 주석';
-  let w = 'E:\\2. 주석 및 강의\\WBC주석';
-  try {
-    const a = localStorage.getItem('naranhi-oxbase');
-    const b = localStorage.getItem('naranhi-wbcbase');
-    if (a) o = a;
-    if (b) w = b;
-  } catch (e) {}
-  return { o: o, w: w };
-}
-function extUrl(base, rel, page) {
-  const bseg = String(base || '').replace(/\\/g, '/').split('/').filter((s, i, a) => s !== '' || i === 0);
-  let b = bseg.map((s, i) => (i === 0 && /^[A-Za-z]:$/.test(s)) ? s : encodeURIComponent(s)).join('/');
-  if (/^[A-Za-z]:\//.test(b)) b = '/' + b;
-  const rseg = String(rel || '').split('/');
-  if (rseg.length > 1 && /^(옥스퍼드|WBC주석)$/.test(decodeURIComponent(rseg[0]))) rseg.shift();
-  const enc = rseg.map(encodeURIComponent).join('/');
-  return 'file://' + b + '/' + enc + '#page=' + page;
-}
-function updateExt() {
-  const box = $('extlinks');
-  if (!box || !state) return;
-  const b = state.book, c = state.chapter;
-  const name = bookById(b).ko;
-  extLinks().then((L) => {
-    const o = ((L.ox || {})[String(b)] || {})[String(c)];
-    const w = ((L.wbc || {})[String(b)] || {})[String(c)];
-    const bases = extBases();
-    const btn = (label, lnk, base) => lnk
-      ? '<a class="extbtn" target="_blank" rel="noreferrer" href="' + extUrl(base, lnk.f, lnk.p) + '">' + label + ' ' + c + '장 ' + lnk.p + '쪽</a>'
-      : '<span class="extbtn off">' + label + ' 없음</span>';
-    box.innerHTML = '<span class="exttitle">' + escapeHtml(name) + ' ' + c + '장 외부주석</span>' + btn('옥스퍼드', o, bases.o) + btn('WBC', w, bases.w) + '<button type="button" class="extset" id="extSetBtn">경로</button>';
-    const sb = $('extSetBtn');
-    if (sb) sb.onclick = extSettings;
-  });
-}
-function extSettings() {
-  const bases = extBases();
-  const o = prompt('옥스퍼드 주석 폴더 (PDF가 있는 곳)', bases.o);
-  if (o === null) return;
-  const w = prompt('WBC 주석 폴더 (PDF가 있는 곳)', bases.w);
-  if (w === null) return;
-  try { localStorage.setItem('naranhi-oxbase', o); localStorage.setItem('naranhi-wbcbase', w); } catch (e) {}
-  updateExt();
 }
